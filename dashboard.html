@@ -37,7 +37,7 @@
     flex-wrap: wrap; gap: 16px;
     margin-bottom: 48px;
   }
-  .program-desc { color: var(--light-grey); font-size: 0.95rem; line-height: 1.6; max-width: 560px; margin-top: 8px; }
+  .program-desc { color: var(--light-grey); font-size: 1rem; line-height: 1.6; max-width: 560px; margin-top: 8px; }
   .program-license-notice {
     color: var(--grey);
     font-size: 0.78rem;
@@ -66,18 +66,19 @@
   }
   .day-card h4 {
     font-family: 'Barlow Condensed', sans-serif;
-    font-size: 1rem;
+    font-size: 1.1rem;
     font-weight: 700;
     letter-spacing: 0.05em;
     text-transform: uppercase;
     color: var(--white);
-    margin-bottom: 10px;
+    margin-bottom: 12px;
   }
-  .day-card ul { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+  .day-card ul { list-style: none; display: flex; flex-direction: column; gap: 9px; }
   .day-card li {
-    font-size: 0.9rem;
+    font-size: 1.05rem;
+    line-height: 1.5;
     color: var(--light-grey);
-    padding-left: 16px;
+    padding-left: 18px;
     position: relative;
   }
   .day-card li::before { content: '—'; position: absolute; left: 0; color: var(--grey); }
@@ -116,8 +117,8 @@
   .day-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 20px; }
   .day-tabs button {
     background: var(--card); border: 1px solid var(--border); color: var(--light-grey);
-    font-family: 'Barlow Condensed', sans-serif; font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase;
-    padding: 8px 14px; cursor: pointer;
+    font-family: 'Barlow Condensed', sans-serif; font-size: 0.82rem; letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 10px 16px; cursor: pointer;
   }
   .day-tabs button.active { border-color: var(--red); color: var(--white); background: rgba(200,16,46,0.1); }
   .day-tabs button:hover:not(.active) { border-color: var(--grey); }
@@ -362,7 +363,7 @@
 
     if (week.focus) {
       const focusEl = document.createElement('p');
-      focusEl.style.cssText = 'color: var(--light-grey); font-size: 0.85rem; line-height: 1.6; margin-bottom: 16px;';
+      focusEl.style.cssText = 'color: var(--light-grey); font-size: 0.95rem; line-height: 1.6; margin-bottom: 16px;';
       focusEl.textContent = week.focus;
       block.appendChild(focusEl);
     }
@@ -414,7 +415,7 @@
 
       if (day.warmup) {
         const warmupEl = document.createElement('p');
-        warmupEl.style.cssText = 'font-size: 0.8rem; color: var(--grey); margin-bottom: 10px; font-style: italic;';
+        warmupEl.style.cssText = 'font-size: 0.92rem; color: var(--grey); margin-bottom: 12px; font-style: italic; line-height: 1.5;';
         warmupEl.textContent = 'Warm-up: ' + day.warmup;
         card.appendChild(warmupEl);
       }
@@ -429,7 +430,7 @@
 
       if (day.finisher) {
         const finisherEl = document.createElement('p');
-        finisherEl.style.cssText = 'font-size: 0.85rem; color: var(--light-grey); margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);';
+        finisherEl.style.cssText = 'font-size: 0.95rem; color: var(--light-grey); line-height: 1.5; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border);';
         finisherEl.innerHTML = '<strong style="color: var(--red);">Finisher:</strong> ' + day.finisher;
         card.appendChild(finisherEl);
       }
