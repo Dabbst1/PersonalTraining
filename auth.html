@@ -94,10 +94,21 @@
   const waiverCheckbox = document.getElementById('waiver-checkbox');
   let mode = 'login';
 
-  // Waiver text on waiver.html is still a draft awaiting attorney review —
-  // flip this to true once it's finalized, and the checkbox + requirement
-  // come back automatically. Nothing else needs to change.
-  const WAIVER_ENABLED = false;
+  // Whether the waiver checkbox is required at signup — controlled from
+  // the admin page (admin.html), stored in the database, not in this code.
+  // Defaults to off if it can't be read yet (e.g. Supabase not connected),
+  // which is the safer default while the waiver is still a draft.
+  let WAIVER_ENABLED = false;
+
+  async function loadWaiverSetting() {
+    if (!supabaseClient) return;
+    const { data } = await supabaseClient
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'waiver_enabled')
+      .single();
+    WAIVER_ENABLED = data?.value === 'true';
+  }
 
   function setMode(next) {
     mode = next;
@@ -224,7 +235,10 @@
     if (session) window.location.href = 'dashboard.html';
   })();
 
-  setMode('login');
+  (async () => {
+    await loadWaiverSetting();
+    setMode('login'); // runs after the setting loads, so the waiver field shows/hides correctly on first paint
+  })();
 </script>
 </body>
 </html>

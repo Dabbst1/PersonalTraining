@@ -351,6 +351,45 @@ $$;
 grant execute on function public.admin_list_clients() to authenticated;
 
 -- ─────────────────────────────────────────────────────────────
+-- SITE SETTINGS — simple on/off switches an admin can flip from the
+-- website itself, without editing any code or re-uploading anything.
+-- Publicly readable (auth.html needs to check the waiver setting before
+-- anyone's logged in), but only admins can change a value.
+-- ─────────────────────────────────────────────────────────────
+
+create table if not exists app_settings (
+  key text primary key,
+  value text not null,
+  updated_at timestamptz default now()
+);
+
+alter table app_settings enable row level security;
+
+-- drop-and-recreate so this file can be safely re-run without erroring on
+-- "policy already exists" — note app_settings itself is NOT dropped at the
+-- top of this file like the other tables, specifically so re-running this
+-- schema later never resets whatever you've actually toggled.
+drop policy if exists "Settings are publicly readable" on app_settings;
+create policy "Settings are publicly readable"
+  on app_settings for select
+  using (true);
+
+drop policy if exists "Only admins can change settings" on app_settings;
+create policy "Only admins can change settings"
+  on app_settings for update
+  using (is_admin())
+  with check (is_admin());
+
+drop policy if exists "Only admins can add new settings" on app_settings;
+create policy "Only admins can add new settings"
+  on app_settings for insert
+  with check (is_admin());
+
+insert into app_settings (key, value) values
+  ('waiver_enabled', 'false')
+on conflict (key) do nothing;
+
+-- ─────────────────────────────────────────────────────────────
 -- SEED DATA — public program info
 -- ─────────────────────────────────────────────────────────────
 
