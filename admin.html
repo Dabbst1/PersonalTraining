@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — Built For More</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="site.css">
+<style>
+  main { max-width: 1100px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 24px; }
+  th {
+    text-align: left;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--grey);
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  td {
+    padding: 12px;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.88rem;
+    color: var(--light-grey);
+  }
+  tr:hover td { background: var(--card); }
+  .status-pill {
+    display: inline-block;
+    padding: 3px 10px;
+    font-size: 0.72rem;
+    font-family: 'Barlow Condensed', sans-serif;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .status-active { background: rgba(107,207,127,0.15); color: #6bcf7f; }
+  .status-refunded { background: rgba(255,107,107,0.15); color: #ff6b6b; }
+  .stale-checkin { color: #ff6b6b; }
+  .filter-bar { display: flex; gap: 12px; margin-top: 20px; flex-wrap: wrap; }
+  .filter-bar input {
+    background: var(--black); border: 1px solid var(--border); color: var(--white);
+    padding: 10px 14px; font-family: 'Barlow', sans-serif; font-size: 0.9rem; flex: 1; min-width: 220px;
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="nav-logo">Built For More</a>
+  <ul class="nav-links">
+    <li><a href="dashboard.html">My Program</a></li>
+    <li><a href="#" id="logout-link">Log Out</a></li>
+  </ul>
+</nav>
+
+<main>
+  <div class="state-message" id="loading-state">
+    <p>Loading...</p>
+  </div>
+
+  <div class="state-message" id="denied-state" style="display:none;">
+    <div class="section-label" style="justify-content:center;">Access Denied</div>
+    <h2 class="section-title">Admins Only.</h2>
+  </div>
+
+  <div id="admin-content" style="display:none;">
+    <div class="section-label">Admin</div>
+    <h1 class="section-title">Clients.</h1>
+
+    <div class="filter-bar">
+      <input type="text" id="search-input" placeholder="Search by email or program...">
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Client</th>
+          <th>Program</th>
+          <th>Status</th>
+          <th>Purchased</th>
+          <th>Check-Ins</th>
+          <th>Last Check-In</th>
+        </tr>
+      </thead>
+      <tbody id="client-rows"></tbody>
+    </table>
+  </div>
+</main>
+
+<footer>
+  <div class="footer-logo">Built For More</div>
+  <p>&copy; 2026. All rights reserved.</p>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script>
+  let allRows = [];
+
+  async function init() {
+    if (!supabaseClient) {
+      document.getElementById('loading-state').innerHTML = '<p>Account system is not connected yet.</p>';
+      return;
+    }
+
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session) {
+      window.location.href = 'auth.html';
+      return;
+    }
+
+    // admin_list_clients() is a database function that itself checks
+    // whether the caller is an admin (see supabase-schema.sql) — it returns
+    // an empty result for anyone who isn't, so this is enforced server-side,
+    // not just by hiding the page.
+    const { data, error } = await supabaseClient.rpc('admin_list_clients');
+
+    document.getElementById('loading-state').style.display = 'none';
+
+    if (error || !data || data.length === 0) {
+      document.getElementById('denied-state').style.display = 'block';
+      return;
+    }
+
+    allRows = data;
+    renderRows(allRows);
+    document.getElementById('admin-content').style.display = 'block';
+  }
+
+  function renderRows(rows) {
+    const tbody = document.getElementById('client-rows');
+    tbody.innerHTML = '';
+    const today = new Date();
+
+    rows.forEach(row => {
+      const tr = document.createElement('tr');
+
+      const lastCheckin = row.last_checkin ? new Date(row.last_checkin) : null;
+      const daysSince = lastCheckin ? Math.floor((today - lastCheckin) / 86400000) : null;
+      const staleClass = (daysSince !== null && daysSince > 5) ? 'stale-checkin' : '';
+
+      tr.innerHTML = `
+        <td>${row.email}</td>
+        <td>${row.program_name}</td>
+        <td><span class="status-pill status-${row.purchase_status}">${row.purchase_status}</span></td>
+        <td>${row.purchased_at ? new Date(row.purchased_at).toLocaleDateString() : '—'}</td>
+        <td>${row.checkin_count}</td>
+        <td class="${staleClass}">${lastCheckin ? lastCheckin.toLocaleDateString() : 'Never'}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  document.getElementById('search-input').addEventListener('input', (e) => {
+    const q = e.target.value.toLowerCase();
+    const filtered = allRows.filter(r =>
+      r.email.toLowerCase().includes(q) || r.program_name.toLowerCase().includes(q)
+    );
+    renderRows(filtered);
+  });
+
+  document.getElementById('logout-link').addEventListener('click', async (e) => {
+    e.preventDefault();
+    if (supabaseClient) await supabaseClient.auth.signOut();
+    window.location.href = 'index.html';
+  });
+
+  init();
+</script>
+</body>
+</html>

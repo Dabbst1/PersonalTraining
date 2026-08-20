@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Check In — Built For More</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="site.css">
+<style>
+  main { max-width: 1000px; }
+
+  /* CALENDAR */
+  .calendar-nav {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 20px;
+  }
+  .calendar-nav button {
+    background: none; border: 1px solid var(--border); color: var(--white);
+    font-family: 'Barlow Condensed', sans-serif; font-size: 0.85rem; letter-spacing: 0.1em;
+    padding: 8px 16px; cursor: pointer; text-transform: uppercase;
+  }
+  .calendar-nav button:hover { border-color: var(--grey); }
+  .calendar-month-label {
+    font-family: 'Bebas Neue', sans-serif; font-size: 1.6rem; letter-spacing: 0.05em; color: var(--white);
+  }
+  .calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+  }
+  .calendar-dow {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--grey);
+    text-align: center;
+    padding-bottom: 8px;
+  }
+  .calendar-day {
+    aspect-ratio: 1;
+    background: var(--card);
+    border: 1px solid var(--border);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: var(--light-grey);
+    position: relative;
+    transition: border-color 0.15s;
+  }
+  .calendar-day:hover { border-color: var(--grey); }
+  .calendar-day.empty { background: transparent; border: none; cursor: default; }
+  .calendar-day.logged { border-color: var(--red); }
+  .calendar-day.logged::after {
+    content: '';
+    position: absolute; bottom: 6px;
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--red);
+  }
+  .calendar-day.today { color: var(--white); font-weight: 600; }
+
+  /* MODAL */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+    display: none; align-items: center; justify-content: center; z-index: 200;
+    padding: 20px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--dark);
+    border: 1px solid var(--border);
+    max-width: 480px; width: 100%;
+    max-height: 85vh; overflow-y: auto;
+    padding: 32px;
+  }
+  .modal-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.6rem; letter-spacing: 0.03em; color: var(--white);
+    margin-bottom: 20px;
+  }
+  .exercise-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr auto;
+    gap: 8px;
+    margin-bottom: 8px;
+    align-items: center;
+  }
+  .exercise-row input {
+    background: var(--black); border: 1px solid var(--border); color: var(--white);
+    padding: 8px 10px; font-size: 0.85rem; font-family: 'Barlow', sans-serif; width: 100%;
+  }
+  .exercise-row button {
+    background: none; border: none; color: var(--grey); cursor: pointer; font-size: 1.1rem;
+  }
+  .exercise-row button:hover { color: #ff6b6b; }
+  .add-exercise-btn {
+    background: none; border: 1px dashed var(--border); color: var(--grey);
+    font-family: 'Barlow Condensed', sans-serif; font-size: 0.8rem; letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 10px; width: 100%; cursor: pointer; margin: 8px 0 20px;
+  }
+  .add-exercise-btn:hover { border-color: var(--grey); color: var(--white); }
+  .modal-actions { display: flex; gap: 12px; margin-top: 20px; }
+  .modal-actions .btn-primary, .modal-actions .btn-ghost { flex: 1; text-align: center; }
+
+  .program-switcher-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+  .program-switcher-tabs button {
+    background: var(--card); border: 1px solid var(--border); color: var(--light-grey);
+    font-family: 'Barlow Condensed', sans-serif; font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 10px 16px; cursor: pointer;
+  }
+  .program-switcher-tabs button.active { border-color: var(--red); color: var(--white); }
+  .program-switcher-tabs button:hover { border-color: var(--grey); }
+
+  .progress-summary {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 32px;
+    align-items: end;
+    background: var(--card);
+    border: 1px solid var(--border);
+    padding: 24px;
+    margin-top: 24px;
+  }
+  .streak-block { text-align: center; }
+  .streak-number {
+    font-family: 'Bebas Neue', sans-serif; font-size: 2.6rem; color: var(--red); line-height: 1;
+  }
+  .streak-label {
+    font-family: 'Barlow Condensed', sans-serif; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--grey);
+    margin-top: 4px;
+  }
+  .weekly-chart { display: flex; align-items: flex-end; gap: 6px; height: 70px; }
+  .weekly-bar {
+    flex: 1; background: var(--border); position: relative; min-height: 4px;
+    display: flex; align-items: flex-end;
+  }
+  .weekly-bar-fill { width: 100%; background: var(--red); }
+  .weekly-chart-labels { display: flex; gap: 6px; margin-top: 6px; }
+  .weekly-chart-labels span {
+    flex: 1; text-align: center; font-size: 0.65rem; color: var(--grey);
+    font-family: 'Barlow Condensed', sans-serif;
+  }
+  @media (max-width: 700px) {
+    .progress-summary { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="nav-logo">Built For More</a>
+  <ul class="nav-links">
+    <li><a href="dashboard.html" class="client-tab">My Program</a></li>
+    <li><a href="checkin.html" class="client-tab active">Check In</a></li>
+    <li><a href="account.html" class="client-tab">Account</a></li>
+    <li><a href="admin.html" id="admin-link" style="display:none;">Admin</a></li>
+    <li><a href="#" id="logout-link">Log Out</a></li>
+  </ul>
+</nav>
+
+<main>
+  <!-- LOADING STATE -->
+  <div class="state-message" id="loading-state">
+    <p>Loading your account...</p>
+  </div>
+
+  <!-- NO PURCHASE STATE -->
+  <div class="state-message" id="no-access-state" style="display:none;">
+    <div class="section-label" style="justify-content:center;">No Active Program</div>
+    <h2 class="section-title">You Haven't Unlocked A Program Yet.</h2>
+    <p style="max-width: 480px; margin: 0 auto 24px;">Once you purchase a program, you'll be able to check in and log your workouts here.</p>
+    <a href="index.html#programs" class="btn-primary">View Programs</a>
+  </div>
+
+  <!-- CHECK-IN CONTENT -->
+  <div id="checkin-page-content" style="display:none;">
+    <div id="program-switcher-bar" style="display:none; margin-bottom: 32px;"></div>
+
+    <div class="section-label">Check In</div>
+    <h1 class="section-title">Log Your Workouts.</h1>
+
+    <div id="progress-summary" class="progress-summary"></div>
+
+    <div class="calendar-nav" style="margin-top: 32px;">
+      <button id="prev-month">&larr; Prev</button>
+      <div class="calendar-month-label" id="month-label"></div>
+      <button id="next-month">Next &rarr;</button>
+    </div>
+    <div class="calendar-grid" id="calendar-dow"></div>
+    <div class="calendar-grid" id="calendar-grid" style="margin-top: 4px;"></div>
+  </div>
+</main>
+
+<footer>
+  <div class="footer-logo">Built For More</div>
+  <p>&copy; 2026. All rights reserved.</p>
+</footer>
+
+<!-- CHECK-IN MODAL -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <div class="modal-title" id="modal-date-label">Log Workout</div>
+    <div id="exercise-list"></div>
+    <button type="button" class="add-exercise-btn" id="add-exercise-btn">+ Add Exercise</button>
+    <div class="form-field">
+      <label>Notes</label>
+      <textarea id="log-notes" placeholder="How did it feel? Anything to remember for next time?"></textarea>
+    </div>
+    <div class="form-error" id="modal-message"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn-ghost" id="modal-cancel">Cancel</button>
+      <button type="button" class="btn-primary" id="modal-save">Save Check-In</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script>
+  let currentUser = null;
+  let currentProgramId = null; // the program a new check-in gets tagged with
+  let allPurchases = [];
+  let workoutLogs = {}; // { 'YYYY-MM-DD': { exercises: [...], notes: '' } }
+  let calendarDate = new Date();
+  let selectedDateStr = null;
+
+  const loadingState = document.getElementById('loading-state');
+  const noAccessState = document.getElementById('no-access-state');
+  const checkinPageContent = document.getElementById('checkin-page-content');
+
+  async function init() {
+    if (!supabaseClient) {
+      loadingState.innerHTML = '<p>Account system is not connected yet. Check back soon.</p>';
+      return;
+    }
+
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session) {
+      window.location.href = 'auth.html';
+      return;
+    }
+    currentUser = session.user;
+
+    const { data: isAdmin } = await supabaseClient.rpc('is_admin');
+    if (isAdmin) document.getElementById('admin-link').style.display = 'inline';
+
+    // Check-in is still purchase-gated — same rule as the program page,
+    // just checking `purchases` directly rather than needing the protected
+    // program_content table (this page never touches the actual workout plan).
+    const { data: purchases, error: purchaseErr } = await supabaseClient
+      .from('purchases')
+      .select('program_id, programs(name)')
+      .eq('user_id', currentUser.id)
+      .eq('status', 'active')
+      .order('created_at', { ascending: true });
+
+    if (purchaseErr) {
+      loadingState.innerHTML = '<p>Something went wrong loading your account. Please refresh.</p>';
+      return;
+    }
+
+    if (!purchases || purchases.length === 0) {
+      loadingState.style.display = 'none';
+      noAccessState.style.display = 'block';
+      return;
+    }
+
+    allPurchases = purchases;
+    const savedId = sessionStorage.getItem('bfm_active_program');
+    currentProgramId = (purchases.find(p => p.program_id === savedId) || purchases[purchases.length - 1]).program_id;
+
+    renderSwitcher();
+    await loadWorkoutLogs();
+    renderCalendar();
+    renderProgressSummary();
+
+    loadingState.style.display = 'none';
+    checkinPageContent.style.display = 'block';
+  }
+
+  function renderSwitcher() {
+    const bar = document.getElementById('program-switcher-bar');
+    if (allPurchases.length < 2) { bar.style.display = 'none'; return; }
+
+    bar.innerHTML = '';
+    bar.style.display = 'block';
+    const label = document.createElement('div');
+    label.className = 'section-label';
+    label.textContent = 'Logging For';
+    bar.appendChild(label);
+
+    const tabs = document.createElement('div');
+    tabs.className = 'program-switcher-tabs';
+    allPurchases.forEach(p => {
+      const btn = document.createElement('button');
+      btn.textContent = p.programs.name;
+      btn.classList.toggle('active', p.program_id === currentProgramId);
+      btn.addEventListener('click', () => {
+        currentProgramId = p.program_id;
+        sessionStorage.setItem('bfm_active_program', p.program_id);
+        renderSwitcher();
+      });
+      tabs.appendChild(btn);
+    });
+    bar.appendChild(tabs);
+  }
+
+  async function loadWorkoutLogs() {
+    const { data, error } = await supabaseClient
+      .from('workout_logs')
+      .select('*')
+      .eq('user_id', currentUser.id);
+    if (error) return;
+    workoutLogs = {};
+    (data || []).forEach(row => {
+      workoutLogs[row.log_date] = { exercises: row.exercises || [], notes: row.notes || '' };
+    });
+  }
+
+  function formatDateStr(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  function computeStreak() {
+    // Counts consecutive days with a check-in, walking backward from today.
+    // A gap of exactly one day (today not yet logged) doesn't break it.
+    let streak = 0;
+    let cursor = new Date();
+    let dateStr = formatDateStr(cursor);
+    if (!workoutLogs[dateStr]) {
+      cursor.setDate(cursor.getDate() - 1);
+      dateStr = formatDateStr(cursor);
+    }
+    while (workoutLogs[dateStr]) {
+      streak++;
+      cursor.setDate(cursor.getDate() - 1);
+      dateStr = formatDateStr(cursor);
+    }
+    return streak;
+  }
+
+  function renderProgressSummary() {
+    const el = document.getElementById('progress-summary');
+    const streak = computeStreak();
+
+    // Check-ins per week for the last 8 weeks (oldest first).
+    const weekCounts = [];
+    const weekLabels = [];
+    const today = new Date();
+    for (let w = 7; w >= 0; w--) {
+      const weekStart = new Date(today);
+      weekStart.setDate(weekStart.getDate() - (w * 7) - today.getDay());
+      let count = 0;
+      for (let d = 0; d < 7; d++) {
+        const day = new Date(weekStart);
+        day.setDate(day.getDate() + d);
+        if (workoutLogs[formatDateStr(day)]) count++;
+      }
+      weekCounts.push(count);
+      weekLabels.push(w === 0 ? 'This wk' : `-${w}w`);
+    }
+    const maxCount = Math.max(1, ...weekCounts);
+
+    const bars = weekCounts.map(c =>
+      `<div class="weekly-bar" style="height:100%;"><div class="weekly-bar-fill" style="height:${(c / maxCount) * 100}%;"></div></div>`
+    ).join('');
+    const labels = weekLabels.map(l => `<span>${l}</span>`).join('');
+
+    el.innerHTML = `
+      <div class="streak-block">
+        <div class="streak-number">${streak}</div>
+        <div class="streak-label">Day${streak === 1 ? '' : 's'} Streak</div>
+      </div>
+      <div>
+        <div class="weekly-chart">${bars}</div>
+        <div class="weekly-chart-labels">${labels}</div>
+      </div>
+    `;
+  }
+
+  function renderCalendar() {
+    const dowEl = document.getElementById('calendar-dow');
+    dowEl.innerHTML = '';
+    ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(d => {
+      const el = document.createElement('div');
+      el.className = 'calendar-dow';
+      el.textContent = d;
+      dowEl.appendChild(el);
+    });
+
+    const gridEl = document.getElementById('calendar-grid');
+    gridEl.innerHTML = '';
+
+    const year = calendarDate.getFullYear();
+    const month = calendarDate.getMonth();
+    document.getElementById('month-label').textContent =
+      calendarDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const todayStr = formatDateStr(new Date());
+
+    for (let i = 0; i < firstDay; i++) {
+      const empty = document.createElement('div');
+      empty.className = 'calendar-day empty';
+      gridEl.appendChild(empty);
+    }
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateObj = new Date(year, month, d);
+      const dateStr = formatDateStr(dateObj);
+      const cell = document.createElement('div');
+      cell.className = 'calendar-day';
+      if (workoutLogs[dateStr]) cell.classList.add('logged');
+      if (dateStr === todayStr) cell.classList.add('today');
+      cell.textContent = d;
+      cell.addEventListener('click', () => openModal(dateStr));
+      gridEl.appendChild(cell);
+    }
+  }
+
+  document.getElementById('prev-month').addEventListener('click', () => {
+    calendarDate.setMonth(calendarDate.getMonth() - 1);
+    renderCalendar();
+  });
+  document.getElementById('next-month').addEventListener('click', () => {
+    calendarDate.setMonth(calendarDate.getMonth() + 1);
+    renderCalendar();
+  });
+
+  // ── CHECK-IN MODAL ──
+  const modalOverlay = document.getElementById('modal-overlay');
+  const exerciseListEl = document.getElementById('exercise-list');
+  const modalMessage = document.getElementById('modal-message');
+
+  function exerciseRow(name = '', sets = '', reps = '', weight = '') {
+    const row = document.createElement('div');
+    row.className = 'exercise-row';
+    row.innerHTML = `
+      <input type="text" placeholder="Exercise" class="ex-name" value="${name}">
+      <input type="text" placeholder="Sets" class="ex-sets" value="${sets}">
+      <input type="text" placeholder="Reps" class="ex-reps" value="${reps}">
+      <input type="text" placeholder="Weight" class="ex-weight" value="${weight}">
+      <button type="button" title="Remove">&times;</button>
+    `;
+    row.querySelector('button').addEventListener('click', () => row.remove());
+    return row;
+  }
+
+  document.getElementById('add-exercise-btn').addEventListener('click', () => {
+    exerciseListEl.appendChild(exerciseRow());
+  });
+
+  function openModal(dateStr) {
+    selectedDateStr = dateStr;
+    modalMessage.textContent = '';
+    const dateObj = new Date(dateStr + 'T00:00:00');
+    document.getElementById('modal-date-label').textContent =
+      dateObj.toLocaleDateString('default', { weekday: 'long', month: 'long', day: 'numeric' });
+
+    exerciseListEl.innerHTML = '';
+    const existing = workoutLogs[dateStr];
+    if (existing && existing.exercises && existing.exercises.length) {
+      existing.exercises.forEach(ex => {
+        exerciseListEl.appendChild(exerciseRow(ex.name || '', ex.sets || '', ex.reps || '', ex.weight || ''));
+      });
+    } else {
+      exerciseListEl.appendChild(exerciseRow());
+    }
+    document.getElementById('log-notes').value = existing ? (existing.notes || '') : '';
+
+    modalOverlay.classList.add('open');
+  }
+
+  document.getElementById('modal-cancel').addEventListener('click', () => {
+    modalOverlay.classList.remove('open');
+  });
+
+  document.getElementById('modal-save').addEventListener('click', async () => {
+    const rows = exerciseListEl.querySelectorAll('.exercise-row');
+    const exercises = [];
+    rows.forEach(row => {
+      const name = row.querySelector('.ex-name').value.trim();
+      if (!name) return;
+      exercises.push({
+        name,
+        sets: row.querySelector('.ex-sets').value.trim(),
+        reps: row.querySelector('.ex-reps').value.trim(),
+        weight: row.querySelector('.ex-weight').value.trim()
+      });
+    });
+    const notes = document.getElementById('log-notes').value.trim();
+
+    const saveBtn = document.getElementById('modal-save');
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving...';
+
+    const { error } = await supabaseClient
+      .from('workout_logs')
+      .upsert({
+        user_id: currentUser.id,
+        program_id: currentProgramId,
+        log_date: selectedDateStr,
+        exercises,
+        notes,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'user_id,log_date' });
+
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'Save Check-In';
+
+    if (error) {
+      modalMessage.textContent = 'Could not save — please try again.';
+      return;
+    }
+
+    workoutLogs[selectedDateStr] = { exercises, notes };
+    renderCalendar();
+    renderProgressSummary();
+    modalOverlay.classList.remove('open');
+  });
+
+  document.getElementById('logout-link').addEventListener('click', async (e) => {
+    e.preventDefault();
+    if (supabaseClient) await supabaseClient.auth.signOut();
+    window.location.href = 'index.html';
+  });
+
+  init();
+</script>
+</body>
+</html>

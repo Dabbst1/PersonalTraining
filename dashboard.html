@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Program — Built For More</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="site.css">
+<style>
+  main { max-width: 1000px; }
+
+  /* CONTENT PROTECTION
+     Screenshots can never be fully blocked — that happens at the OS level,
+     outside any website's control. What's below does two real things instead:
+     (1) a personalized watermark on every program view, so any screenshot
+     that does get shared is traceable back to the account it came from, and
+     (2) disables the easy one-click paths (select-all/copy, right-click save,
+     printing to PDF) so casual copying takes real effort instead of one click. */
+  #program-content-area {
+    position: relative;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    user-select: none;
+  }
+  #watermark-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 5;
+    overflow: hidden;
+    opacity: 0.06;
+  }
+  #watermark-layer .wm-row {
+    display: flex;
+    white-space: nowrap;
+    transform: rotate(-28deg);
+    margin-bottom: 64px;
+  }
+  #watermark-layer .wm-row span {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--white);
+    margin-right: 64px;
+  }
+  @media print {
+    #program-content-area { display: none !important; }
+    body::after {
+      content: 'This program is available to logged-in, paying clients only and cannot be printed. Visit the site to view it.';
+      display: block;
+      padding: 60px;
+      font-family: sans-serif;
+    }
+  }
+
+  .program-header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    flex-wrap: wrap; gap: 16px;
+    margin-bottom: 48px;
+  }
+  .program-desc { color: var(--light-grey); font-size: 0.95rem; line-height: 1.6; max-width: 560px; margin-top: 8px; }
+  .program-license-notice {
+    color: var(--grey);
+    font-size: 0.78rem;
+    line-height: 1.5;
+    max-width: 560px;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+
+  .week-block { margin-bottom: 32px; }
+  .week-heading {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--red);
+    margin-bottom: 16px;
+  }
+  .day-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    padding: 20px 24px;
+    margin-bottom: 12px;
+  }
+  .day-card h4 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--white);
+    margin-bottom: 10px;
+  }
+  .day-card ul { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+  .day-card li {
+    font-size: 0.9rem;
+    color: var(--light-grey);
+    padding-left: 16px;
+    position: relative;
+  }
+  .day-card li::before { content: '—'; position: absolute; left: 0; color: var(--grey); }
+
+  .program-switcher-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+  .program-switcher-tabs button {
+    background: var(--card); border: 1px solid var(--border); color: var(--light-grey);
+    font-family: 'Barlow Condensed', sans-serif; font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 10px 16px; cursor: pointer;
+  }
+  .program-switcher-tabs button.active { border-color: var(--red); color: var(--white); }
+  .program-switcher-tabs button:hover { border-color: var(--grey); }
+
+  .renewal-banner {
+    background: linear-gradient(135deg, rgba(200,16,46,0.15), rgba(200,16,46,0.03));
+    border: 1px solid var(--red);
+    padding: 20px 24px;
+    margin-bottom: 32px;
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;
+  }
+  .renewal-banner p { font-size: 0.9rem; color: var(--light-grey); }
+  .renewal-banner strong { color: var(--white); }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="nav-logo">Built For More</a>
+  <ul class="nav-links">
+    <li><a href="dashboard.html" class="client-tab active">My Program</a></li>
+    <li><a href="checkin.html" class="client-tab">Check In</a></li>
+    <li><a href="account.html" class="client-tab">Account</a></li>
+    <li><a href="admin.html" id="admin-link" style="display:none;">Admin</a></li>
+    <li><a href="#" id="logout-link">Log Out</a></li>
+  </ul>
+</nav>
+
+<main>
+  <!-- LOADING STATE -->
+  <div class="state-message" id="loading-state">
+    <p>Loading your account...</p>
+  </div>
+
+  <!-- NO PURCHASE STATE -->
+  <div class="state-message" id="no-access-state" style="display:none;">
+    <div class="section-label" style="justify-content:center;">No Active Program</div>
+    <h2 class="section-title">You Haven't Unlocked A Program Yet.</h2>
+    <p style="max-width: 480px; margin: 0 auto 24px;">Once you purchase a program, it'll unlock here automatically along with your check-in calendar.</p>
+    <a href="index.html#programs" class="btn-primary">View Programs</a>
+  </div>
+
+  <!-- MAIN PROGRAM VIEW -->
+  <div id="program-page-content" style="display:none;">
+    <div id="program-switcher-bar" style="display:none; margin-bottom: 24px;"></div>
+    <div id="renewal-banner" style="display:none;"></div>
+    <div id="program-content-area">
+      <div id="watermark-layer"></div>
+      <div class="program-header">
+        <div>
+          <div class="section-label">Your Program</div>
+          <h1 class="section-title" id="program-name">—</h1>
+          <p class="program-desc" id="program-desc"></p>
+          <p class="program-license-notice">This program is licensed to your account only. Please don't copy, screenshot, or share it — every view is watermarked to your account.</p>
+        </div>
+      </div>
+
+      <div id="program-weeks"></div>
+    </div>
+
+    <div style="margin-top: 56px; padding-top: 32px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+      <p style="color: var(--grey); font-size: 0.9rem;">Ready to log today's workout?</p>
+      <a href="checkin.html" class="btn-primary">Go To Check In</a>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="footer-logo">Built For More</div>
+  <p>&copy; 2026. All rights reserved.</p>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script>
+  let currentUser = null;
+  let currentPurchase = null;
+  let currentProgram = null;
+
+  const loadingState = document.getElementById('loading-state');
+  const noAccessState = document.getElementById('no-access-state');
+  const programPageContent = document.getElementById('program-page-content');
+  let allPurchases = [];
+
+  async function init() {
+    if (!supabaseClient) {
+      loadingState.innerHTML = '<p>Account system is not connected yet. Check back soon.</p>';
+      return;
+    }
+
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session) {
+      window.location.href = 'auth.html';
+      return;
+    }
+    currentUser = session.user;
+
+    const { data: isAdmin } = await supabaseClient.rpc('is_admin');
+    if (isAdmin) document.getElementById('admin-link').style.display = 'inline';
+
+    // Find ALL of their active purchases — a client may have bought more than one program.
+    const { data: purchases, error: purchaseErr } = await supabaseClient
+      .from('purchases')
+      .select('*, programs(*)')
+      .eq('user_id', currentUser.id)
+      .eq('status', 'active')
+      .order('created_at', { ascending: true });
+
+    if (purchaseErr) {
+      loadingState.innerHTML = '<p>Something went wrong loading your account. Please refresh.</p>';
+      return;
+    }
+
+    if (!purchases || purchases.length === 0) {
+      loadingState.style.display = 'none';
+      noAccessState.style.display = 'block';
+      return;
+    }
+
+    allPurchases = purchases;
+
+    // Remember which program they were last looking at (e.g. coming back from
+    // checkin.html), default to the most recent purchase otherwise.
+    const savedId = sessionStorage.getItem('bfm_active_program');
+    const initial = purchases.find(p => p.program_id === savedId) || purchases[purchases.length - 1];
+
+    renderSwitcher();
+    await loadProgram(initial);
+
+    loadingState.style.display = 'none';
+    programPageContent.style.display = 'block';
+  }
+
+  function renderSwitcher() {
+    const bar = document.getElementById('program-switcher-bar');
+    if (allPurchases.length < 2) { bar.style.display = 'none'; return; }
+
+    bar.innerHTML = '';
+    bar.style.display = 'block';
+    const label = document.createElement('div');
+    label.className = 'section-label';
+    label.textContent = 'Switch Program';
+    bar.appendChild(label);
+
+    const tabs = document.createElement('div');
+    tabs.className = 'program-switcher-tabs';
+    allPurchases.forEach(p => {
+      const btn = document.createElement('button');
+      btn.textContent = p.programs.name;
+      btn.dataset.programId = p.program_id;
+      btn.addEventListener('click', () => loadProgram(p));
+      tabs.appendChild(btn);
+    });
+    bar.appendChild(tabs);
+  }
+
+  function updateSwitcherActiveState(programId) {
+    document.querySelectorAll('.program-switcher-tabs button').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.programId === programId);
+    });
+  }
+
+  async function loadProgram(purchase) {
+    currentPurchase = purchase;
+    currentProgram = purchase.programs;
+    sessionStorage.setItem('bfm_active_program', purchase.program_id);
+    updateSwitcherActiveState(purchase.program_id);
+
+    // Fetch the actual workout plan — this table is behind Row Level Security:
+    // Supabase only returns a row here if this user has a matching active
+    // purchase (checked server-side, not just by this page's logic). If
+    // someone had no purchase and tried to query this directly, they'd get
+    // nothing back regardless of what the front-end does.
+    const { data: contentRow, error: contentErr } = await supabaseClient
+      .from('program_content')
+      .select('content')
+      .eq('program_id', currentProgram.id)
+      .single();
+
+    if (contentErr || !contentRow) {
+      loadingState.innerHTML = '<p>Could not load your program content. Please refresh or contact support.</p>';
+      return;
+    }
+    currentProgram.content = contentRow.content;
+
+    renderProgram();
+    renderRenewalBanner();
+  }
+
+  function renderRenewalBanner() {
+    const banner = document.getElementById('renewal-banner');
+    const weeks = currentProgram.weeks || (currentProgram.content || []).length;
+    if (!weeks || !currentPurchase.created_at) { banner.style.display = 'none'; return; }
+
+    const purchasedAt = new Date(currentPurchase.created_at);
+    const daysElapsed = Math.floor((new Date() - purchasedAt) / 86400000);
+    const programLengthDays = weeks * 7;
+
+    if (daysElapsed >= programLengthDays - 3) {
+      banner.style.display = 'block';
+      banner.innerHTML = `
+        <div class="renewal-banner">
+          <p><strong>You've nearly completed ${currentProgram.name}.</strong> Ready to keep building? Check out the next tier.</p>
+          <a href="index.html#programs" class="btn-primary">View Programs</a>
+        </div>`;
+    } else {
+      banner.style.display = 'none';
+    }
+  }
+
+  function renderProgram() {
+    document.getElementById('program-name').textContent = currentProgram.name;
+    document.getElementById('program-desc').textContent = currentProgram.description || '';
+    renderWatermark();
+
+    const weeksEl = document.getElementById('program-weeks');
+    weeksEl.innerHTML = '';
+    (currentProgram.content || []).forEach(week => {
+      const block = document.createElement('div');
+      block.className = 'week-block';
+      const heading = document.createElement('div');
+      heading.className = 'week-heading';
+      heading.textContent = 'Week ' + week.week;
+      block.appendChild(heading);
+
+      if (week.focus) {
+        const focusEl = document.createElement('p');
+        focusEl.style.cssText = 'color: var(--light-grey); font-size: 0.85rem; line-height: 1.6; margin-bottom: 16px;';
+        focusEl.textContent = week.focus;
+        block.appendChild(focusEl);
+      }
+
+      (week.days || []).forEach(day => {
+        const card = document.createElement('div');
+        card.className = 'day-card';
+        const h4 = document.createElement('h4');
+        h4.textContent = day.day + ' — ' + day.title;
+        card.appendChild(h4);
+
+        if (day.warmup) {
+          const warmupEl = document.createElement('p');
+          warmupEl.style.cssText = 'font-size: 0.8rem; color: var(--grey); margin-bottom: 10px; font-style: italic;';
+          warmupEl.textContent = 'Warm-up: ' + day.warmup;
+          card.appendChild(warmupEl);
+        }
+
+        const ul = document.createElement('ul');
+        (day.exercises || []).forEach(ex => {
+          const li = document.createElement('li');
+          li.textContent = ex;
+          ul.appendChild(li);
+        });
+        card.appendChild(ul);
+
+        if (day.finisher) {
+          const finisherEl = document.createElement('p');
+          finisherEl.style.cssText = 'font-size: 0.85rem; color: var(--light-grey); margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);';
+          finisherEl.innerHTML = '<strong style="color: var(--red);">Finisher:</strong> ' + day.finisher;
+          card.appendChild(finisherEl);
+        }
+
+        block.appendChild(card);
+      });
+      weeksEl.appendChild(block);
+    });
+  }
+
+  document.getElementById('logout-link').addEventListener('click', async (e) => {
+    e.preventDefault();
+    if (supabaseClient) await supabaseClient.auth.signOut();
+    window.location.href = 'index.html';
+  });
+
+  // ── CONTENT PROTECTION ──
+  // See the CSS comment above #program-content-area for what this can and
+  // can't do. This tiles the logged-in user's email across the program view
+  // (near-invisible, but present in any screenshot) and blocks the easy
+  // one-click copy paths. It cannot block OS-level screenshots or a second
+  // camera — nothing running in a browser can.
+  function renderWatermark() {
+    const layer = document.getElementById('watermark-layer');
+    if (!layer || !currentUser) return;
+    const label = (currentUser.email || 'Built For More') + '  •  Licensed to this account only';
+    layer.innerHTML = '';
+    for (let row = 0; row < 14; row++) {
+      const rowEl = document.createElement('div');
+      rowEl.className = 'wm-row';
+      for (let col = 0; col < 6; col++) {
+        const span = document.createElement('span');
+        span.textContent = label;
+        rowEl.appendChild(span);
+      }
+      layer.appendChild(rowEl);
+    }
+  }
+
+  const protectedArea = document.getElementById('program-content-area');
+  if (protectedArea) {
+    protectedArea.addEventListener('contextmenu', (e) => e.preventDefault());
+    protectedArea.addEventListener('copy', (e) => e.preventDefault());
+    protectedArea.addEventListener('cut', (e) => e.preventDefault());
+    protectedArea.addEventListener('dragstart', (e) => e.preventDefault());
+  }
+  // Block common "save/print this page" keyboard shortcuts while a client is
+  // viewing their program. Doesn't stop OS-level screenshot shortcuts (those
+  // aren't interceptable from a webpage), only the print/save-page paths.
+  document.addEventListener('keydown', (e) => {
+    const key = e.key.toLowerCase();
+    const blockedCombo = (e.ctrlKey || e.metaKey) && (key === 'p' || key === 's');
+    if (blockedCombo && document.getElementById('program-content-area')) {
+      e.preventDefault();
+    }
+  });
+
+  init();
+</script>
+</body>
+</html>

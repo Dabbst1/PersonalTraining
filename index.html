@@ -64,6 +64,13 @@
     font-weight: 600 !important;
   }
   .nav-cta:hover { background: #e01535 !important; }
+  .nav-account {
+    border: 1px solid var(--light-grey) !important;
+    color: var(--white) !important;
+    padding: 7px 18px;
+    font-weight: 600 !important;
+  }
+  .nav-account:hover { border-color: var(--white) !important; background: rgba(255,255,255,0.06); }
 
   /* HERO */
   .hero {
@@ -359,6 +366,140 @@
   }
   .video-card p { font-size: 0.9rem; line-height: 1.6; color: var(--grey); }
 
+  /* PROGRAMS / PRICING */
+  .programs-section { background: var(--dark); }
+  .programs-intro { max-width: 620px; }
+  .programs-intro p {
+    font-size: 1rem;
+    line-height: 1.7;
+    color: var(--light-grey);
+    margin-top: 8px;
+  }
+  .program-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    margin-top: 56px;
+    align-items: stretch;
+  }
+  .program-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    padding: 40px 32px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    transition: border-color 0.3s, transform 0.3s;
+  }
+  .program-card:hover { border-color: var(--red-dim); transform: translateY(-4px); }
+  .program-card.featured { border-color: var(--red); }
+  .program-badge {
+    position: absolute; top: 0; right: 0;
+    background: var(--red);
+    color: var(--white);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 7px 16px;
+  }
+  .program-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2rem;
+    color: var(--border);
+    margin-bottom: 16px;
+  }
+  .program-tag {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--red);
+    margin-bottom: 8px;
+  }
+  .program-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.9rem;
+    letter-spacing: 0.02em;
+    line-height: 1.05;
+    color: var(--white);
+    margin-bottom: 16px;
+  }
+  .program-desc {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: var(--grey);
+    margin-bottom: 24px;
+  }
+  .program-features {
+    display: flex; flex-direction: column; gap: 10px;
+    margin-bottom: 32px;
+    flex-grow: 1;
+    border-top: 1px solid var(--border);
+    padding-top: 20px;
+  }
+  .program-feature {
+    display: flex; align-items: flex-start; gap: 10px;
+    font-size: 0.85rem;
+    color: var(--light-grey);
+    line-height: 1.5;
+  }
+  .program-feature::before { content: '+'; color: var(--red); font-weight: 700; flex-shrink: 0; }
+  .program-price {
+    display: flex; align-items: baseline; gap: 8px;
+    margin-bottom: 20px;
+  }
+  .program-price .amount {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.5rem;
+    color: var(--white);
+  }
+  .program-price .period {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--grey);
+  }
+  .program-buy {
+    width: 100%;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.05rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    background: var(--red);
+    color: var(--white);
+    border: none;
+    padding: 16px;
+    text-align: center;
+    text-decoration: none;
+    display: block;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+  }
+  .program-buy:hover { background: #e01535; transform: translateY(-1px); }
+  .programs-footnote {
+    margin-top: 56px;
+    padding-top: 40px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 24px;
+  }
+  .programs-footnote h3 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--white);
+    margin-bottom: 6px;
+  }
+  .programs-footnote p { font-size: 0.9rem; color: var(--grey); max-width: 480px; }
+
   /* INTAKE FORM */
   .intake-section { background: var(--dark); }
   .intake-grid {
@@ -481,8 +622,12 @@
   }
 
   @media (max-width: 900px) {
-    nav { padding: 16px 24px; }
-    .nav-links { display: none; }
+    nav { padding: 14px 16px; flex-wrap: nowrap; }
+    .nav-logo { font-size: 1.05rem; letter-spacing: 0.08em; }
+    .nav-links a:not(.nav-cta):not(.nav-account) { display: none; }
+    .nav-links { gap: 8px; }
+    .nav-account { padding: 7px 12px; font-size: 0.7rem; white-space: nowrap; }
+    .nav-cta { padding: 7px 12px; font-size: 0.7rem; white-space: nowrap; }
     section { padding: 72px 24px; }
     .hero-content { padding: 0 24px 60px; }
     .pillars { grid-template-columns: 1fr; }
@@ -493,6 +638,8 @@
     .gallery-item.tall { grid-row: span 1; }
     .philosophy { grid-template-columns: 1fr; gap: 40px; }
     .video-grid { grid-template-columns: 1fr; }
+    .program-grid { grid-template-columns: 1fr; }
+    .programs-footnote { flex-direction: column; align-items: flex-start; }
     .intake-grid { grid-template-columns: 1fr; gap: 48px; }
     .form-grid { grid-template-columns: 1fr; }
     .form-field.full, .form-submit, .form-note { grid-column: span 1; }
@@ -509,6 +656,8 @@
     <li><a href="#story">Story</a></li>
     <li><a href="#gallery">Gallery</a></li>
     <li><a href="#video">Training</a></li>
+    <li><a href="#programs">Programs</a></li>
+    <li><a href="dashboard.html" class="nav-account" id="nav-account-link">Log In</a></li>
     <li><a href="#intake" class="nav-cta">Apply Now</a></li>
   </ul>
 </nav>
@@ -666,6 +815,74 @@
   </div>
 </section>
 
+<!-- PROGRAMS / PRICING -->
+<section class="programs-section" id="programs">
+  <div class="reveal programs-intro">
+    <div class="section-label">Choose Your Program</div>
+    <h2 class="section-title">Built For Your Goal.</h2>
+    <p>Pick the plan that matches where you are right now. Buy it directly, get instant access, and start training today — no application wait required.</p>
+  </div>
+
+  <div class="program-grid">
+    <div class="program-card reveal">
+      <div class="program-num">01</div>
+      <div class="program-tag">Fat Loss</div>
+      <h3 class="program-name">4-Week Kickstart</h3>
+      <p class="program-desc">A structured four-week plan built around strength, conditioning, calorie-burning work, and consistency.</p>
+      <div class="program-features">
+        <div class="program-feature">4 weeks of structured workouts</div>
+        <div class="program-feature">Strength + conditioning sessions</div>
+        <div class="program-feature">Progressive weekly structure</div>
+        <div class="program-feature">Exercise instructions</div>
+        <div class="program-feature">Immediate digital access</div>
+      </div>
+      <div class="program-price"><span class="amount">$49</span><span class="period">One-Time</span></div>
+      <a href="#" class="program-buy" data-plan="kickstart-4wk">Buy This Program</a>
+    </div>
+
+    <div class="program-card featured reveal">
+      <div class="program-badge">Most Popular</div>
+      <div class="program-num">02</div>
+      <div class="program-tag">Strength + Conditioning</div>
+      <h3 class="program-name">Built For More<br>(6-Week)</h3>
+      <p class="program-desc">The full Built For More training experience: progressive strength, conditioning, work capacity, and real-world performance.</p>
+      <div class="program-features">
+        <div class="program-feature">6 weeks of progressive programming</div>
+        <div class="program-feature">Strength + hypertrophy work</div>
+        <div class="program-feature">Conditioning and endurance</div>
+        <div class="program-feature">Mobility and recovery guidance</div>
+        <div class="program-feature">Immediate digital access</div>
+      </div>
+      <div class="program-price"><span class="amount">$79</span><span class="period">One-Time</span></div>
+      <a href="#" class="program-buy" data-plan="built-for-more-6wk">Buy This Program</a>
+    </div>
+
+    <div class="program-card reveal">
+      <div class="program-num">03</div>
+      <div class="program-tag">Full Program</div>
+      <h3 class="program-name">The Phenom Regime<br>(8-Week)</h3>
+      <p class="program-desc">The complete 8-week transformation: advanced programming, deep conditioning blocks, and long-range progression tracking.</p>
+      <div class="program-features">
+        <div class="program-feature">8 weeks of advanced programming</div>
+        <div class="program-feature">Full strength + hypertrophy split</div>
+        <div class="program-feature">Advanced conditioning blocks</div>
+        <div class="program-feature">Mobility and recovery guidance</div>
+        <div class="program-feature">Immediate digital access</div>
+      </div>
+      <div class="program-price"><span class="amount">$149</span><span class="period">One-Time</span></div>
+      <a href="#" class="program-buy" data-plan="phenom-regime-8wk">Buy This Program</a>
+    </div>
+  </div>
+
+  <div class="programs-footnote reveal">
+    <div>
+      <h3>Need More Support?</h3>
+      <p>Want accountability, feedback, and ongoing 1:1 coaching instead of a standalone plan? Apply below.</p>
+    </div>
+    <a href="#intake" class="btn-ghost">Apply For Coaching</a>
+  </div>
+</section>
+
 <!-- INTAKE -->
 <section class="intake-section" id="intake">
   <div class="section-label reveal">Apply for Coaching</div>
@@ -780,6 +997,9 @@
   <p>&copy; 2025. All rights reserved.</p>
 </footer>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script src="stripe-config.js"></script>
 <script>
   // Scroll reveal
   const observer = new IntersectionObserver((entries) => {
@@ -797,7 +1017,46 @@
 
   document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
 
+  // Buy button flow:
+  //  - Already logged in → send straight to their Stripe Payment Link (buying an
+  //    additional program), tagged with their user id so the webhook can credit it directly
+  //  - Not logged in     → send straight to Stripe too — Stripe collects their email
+  //    at checkout. Accounts are only created AFTER a purchase (see auth.html), so
+  //    there's no account to log into yet at this point.
+  //  - Stripe not configured yet → fall back to the coaching/intake form
+  document.querySelectorAll('.program-buy').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const plan = btn.getAttribute('data-plan');
+      const link = (typeof STRIPE_PAYMENT_LINKS !== 'undefined') ? STRIPE_PAYMENT_LINKS[plan] : '';
 
+      if (!link) {
+        document.querySelector('#intake').scrollIntoView({ behavior: 'smooth' });
+        return;
+      }
+
+      let session = null;
+      if (typeof supabaseClient !== 'undefined' && supabaseClient) {
+        const { data } = await supabaseClient.auth.getSession();
+        session = data.session;
+      }
+
+      const url = new URL(link);
+      if (session) {
+        url.searchParams.set('client_reference_id', session.user.id);
+        if (session.user.email) url.searchParams.set('prefilled_email', session.user.email);
+      }
+      window.location.href = url.toString();
+    });
+  });
+
+  // Nav: show "Log In" if signed out, "My Account" if already signed in.
+  (async () => {
+    const link = document.getElementById('nav-account-link');
+    if (!link || typeof supabaseClient === 'undefined' || !supabaseClient) return;
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (session) link.textContent = 'My Account';
+  })();
 </script>
 </body>
 </html>

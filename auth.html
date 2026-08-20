@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign In — Built For More</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="site.css">
+<style>
+  .waiver-field {
+    display: flex; align-items: flex-start; gap: 10px;
+    margin: 16px 0;
+    font-size: 0.8rem; color: var(--light-grey); line-height: 1.5;
+  }
+  .waiver-field input[type="checkbox"] {
+    margin-top: 3px; flex-shrink: 0; width: 16px; height: 16px; accent-color: var(--red);
+  }
+  .waiver-field a { color: var(--white); text-decoration: underline; }
+  .forgot-link {
+    display: block; text-align: right; font-size: 0.8rem; color: var(--grey);
+    margin-top: -8px; margin-bottom: 16px; text-decoration: none;
+  }
+  .forgot-link:hover { color: var(--white); }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="nav-logo">Built For More</a>
+  <ul class="nav-links">
+    <li><a href="index.html#programs">Programs</a></li>
+    <li><a href="index.html#intake">Apply Now</a></li>
+  </ul>
+</nav>
+
+<main style="max-width: 460px;">
+  <div class="section-label">Client Access</div>
+  <h1 class="section-title" id="page-title">Welcome Back.</h1>
+
+  <div class="tab-switch">
+    <button id="tab-login" class="active">Log In</button>
+    <button id="tab-signup">Create Account</button>
+  </div>
+
+  <div class="card">
+    <form id="auth-form">
+      <div class="form-field">
+        <label>Email</label>
+        <input type="email" id="email" placeholder="your@email.com" required>
+      </div>
+      <div class="form-field">
+        <label>Password</label>
+        <input type="password" id="password" placeholder="••••••••" minlength="6" required>
+      </div>
+      <a href="#" class="forgot-link" id="forgot-link" style="display:none;">Forgot password?</a>
+
+      <div class="waiver-field" id="waiver-field" style="display:none;">
+        <input type="checkbox" id="waiver-checkbox">
+        <label for="waiver-checkbox">I acknowledge the training programs on this site involve physical exertion and inherent risk, and I release Built For More / The Phenom Regime from liability for injury. I've read the <a href="#" id="waiver-link">full waiver</a>.</label>
+      </div>
+
+      <button type="submit" class="btn-primary" id="submit-btn" style="width: 100%;">Log In</button>
+      <div class="form-error" id="form-message"></div>
+    </form>
+  </div>
+
+  <p style="margin-top: 20px; font-size: 0.85rem; color: var(--grey); text-align: center;">
+    Accounts can only be created after buying a program. Already purchased? Use "Create Account" with the same email you checked out with.
+  </p>
+</main>
+
+<footer>
+  <div class="footer-logo">Built For More</div>
+  <p>&copy; 2026. All rights reserved.</p>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script>
+  const tabLogin = document.getElementById('tab-login');
+  const tabSignup = document.getElementById('tab-signup');
+  const form = document.getElementById('auth-form');
+  const submitBtn = document.getElementById('submit-btn');
+  const pageTitle = document.getElementById('page-title');
+  const messageEl = document.getElementById('form-message');
+  const forgotLink = document.getElementById('forgot-link');
+  const waiverField = document.getElementById('waiver-field');
+  const waiverCheckbox = document.getElementById('waiver-checkbox');
+  let mode = 'login';
+
+  function setMode(next) {
+    mode = next;
+    tabLogin.classList.toggle('active', mode === 'login');
+    tabSignup.classList.toggle('active', mode === 'signup');
+    submitBtn.textContent = mode === 'login' ? 'Log In' : 'Create Account';
+    pageTitle.textContent = mode === 'login' ? 'Welcome Back.' : 'Create Your Account.';
+    forgotLink.style.display = mode === 'login' ? 'block' : 'none';
+    waiverField.style.display = mode === 'signup' ? 'flex' : 'none';
+    messageEl.textContent = '';
+    messageEl.className = 'form-error';
+  }
+
+  tabLogin.addEventListener('click', () => setMode('login'));
+  tabSignup.addEventListener('click', () => setMode('signup'));
+
+  forgotLink.addEventListener('click', async (e) => {
+    e.preventDefault();
+    messageEl.textContent = '';
+    messageEl.className = 'form-error';
+    const email = document.getElementById('email').value.trim();
+    if (!email) {
+      messageEl.textContent = 'Enter your email above first, then click "Forgot password?" again.';
+      return;
+    }
+    if (!supabaseClient) return;
+    const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + window.location.pathname.replace('auth.html', 'reset-password.html')
+    });
+    if (error) {
+      messageEl.textContent = error.message;
+      return;
+    }
+    messageEl.className = 'form-success';
+    messageEl.textContent = 'Check your email for a password reset link.';
+  });
+
+  document.getElementById('waiver-link').addEventListener('click', (e) => {
+    e.preventDefault();
+    alert('Full waiver text goes here — replace this alert with a link to your actual liability waiver document.');
+  });
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    messageEl.textContent = '';
+    messageEl.className = 'form-error';
+
+    if (!supabaseClient) {
+      messageEl.textContent = 'Account system is not connected yet. Check back soon.';
+      return;
+    }
+
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+
+    if (mode === 'signup' && !waiverCheckbox.checked) {
+      messageEl.textContent = 'Please check the waiver acknowledgment to continue.';
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Please wait...';
+
+    try {
+      if (mode === 'login') {
+        const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        window.location.href = 'dashboard.html';
+      } else {
+        // Friendly pre-check before attempting signup: is there actually a
+        // purchase on file for this email? This is just for a clear message —
+        // the real enforcement is a database trigger that runs no matter what
+        // (see supabase-schema.sql), so this check being skipped or bypassed
+        // changes nothing about whether the account can actually be created.
+        const { data: hasPurchase, error: checkErr } = await supabaseClient
+          .rpc('email_has_pending_purchase', { check_email: email });
+
+        if (checkErr) throw checkErr;
+
+        if (!hasPurchase) {
+          messageEl.className = 'form-error';
+          messageEl.textContent = "We couldn't find a completed purchase for that email. Buy a program first, then come back and create your account with the same email.";
+          return;
+        }
+
+        const { data, error } = await supabaseClient.auth.signUp({ email, password });
+        if (error) throw error;
+
+        if (data.session) {
+          // Email confirmation is off in this Supabase project — they're logged in immediately.
+          // Record the waiver acceptance now that we have a real user id.
+          await supabaseClient.from('waiver_acceptances').insert({ user_id: data.user.id });
+          window.location.href = 'dashboard.html';
+        } else {
+          messageEl.className = 'form-success';
+          messageEl.textContent = 'Account created! Check your email to confirm, then log in.';
+          setMode('login');
+        }
+      }
+    } catch (err) {
+      messageEl.className = 'form-error';
+      messageEl.textContent = err.message || 'Something went wrong. Please try again.';
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = mode === 'login' ? 'Log In' : 'Create Account';
+    }
+  });
+
+  // If they're already logged in, skip straight to the dashboard.
+  (async () => {
+    if (!supabaseClient) return;
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (session) window.location.href = 'dashboard.html';
+  })();
+
+  setMode('login');
+</script>
+</body>
+</html>
