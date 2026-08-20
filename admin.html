@@ -71,13 +71,14 @@
     <h1 class="section-title">Clients.</h1>
 
     <div class="filter-bar">
-      <input type="text" id="search-input" placeholder="Search by email or program...">
+      <input type="text" id="search-input" placeholder="Search by name, email, or program...">
     </div>
 
     <table>
       <thead>
         <tr>
-          <th>Client</th>
+          <th>Name</th>
+          <th>Email</th>
           <th>Program</th>
           <th>Status</th>
           <th>Purchased</th>
@@ -143,6 +144,7 @@
       const staleClass = (daysSince !== null && daysSince > 5) ? 'stale-checkin' : '';
 
       tr.innerHTML = `
+        <td>${row.full_name || '<span style="color:var(--grey);">—</span>'}</td>
         <td>${row.email}</td>
         <td>${row.program_name}</td>
         <td><span class="status-pill status-${row.purchase_status}">${row.purchase_status}</span></td>
@@ -157,7 +159,9 @@
   document.getElementById('search-input').addEventListener('input', (e) => {
     const q = e.target.value.toLowerCase();
     const filtered = allRows.filter(r =>
-      r.email.toLowerCase().includes(q) || r.program_name.toLowerCase().includes(q)
+      (r.full_name || '').toLowerCase().includes(q) ||
+      r.email.toLowerCase().includes(q) ||
+      r.program_name.toLowerCase().includes(q)
     );
     renderRows(filtered);
   });

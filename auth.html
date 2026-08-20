@@ -46,6 +46,10 @@
 
   <div class="card">
     <form id="auth-form">
+      <div class="form-field" id="name-field" style="display:none;">
+        <label>Full Name</label>
+        <input type="text" id="full-name" placeholder="Jane Smith">
+      </div>
       <div class="form-field">
         <label>Email</label>
         <input type="email" id="email" placeholder="your@email.com" required>
@@ -97,6 +101,8 @@
     submitBtn.textContent = mode === 'login' ? 'Log In' : 'Create Account';
     pageTitle.textContent = mode === 'login' ? 'Welcome Back.' : 'Create Your Account.';
     forgotLink.style.display = mode === 'login' ? 'block' : 'none';
+    document.getElementById('name-field').style.display = mode === 'signup' ? 'flex' : 'none';
+    document.getElementById('full-name').required = mode === 'signup';
     waiverField.style.display = mode === 'signup' ? 'flex' : 'none';
     messageEl.textContent = '';
     messageEl.className = 'form-error';
@@ -143,6 +149,12 @@
 
     const email = document.getElementById('email').value.trim();
     const password = document.getElementById('password').value;
+    const fullName = document.getElementById('full-name').value.trim();
+
+    if (mode === 'signup' && !fullName) {
+      messageEl.textContent = 'Please enter your full name.';
+      return;
+    }
 
     if (mode === 'signup' && !waiverCheckbox.checked) {
       messageEl.textContent = 'Please check the waiver acknowledgment to continue.';
@@ -174,7 +186,11 @@
           return;
         }
 
-        const { data, error } = await supabaseClient.auth.signUp({ email, password });
+        const { data, error } = await supabaseClient.auth.signUp({
+          email,
+          password,
+          options: { data: { full_name: fullName } }
+        });
         if (error) throw error;
 
         if (data.session) {
