@@ -2,20 +2,31 @@
 // STRIPE WEBHOOK → SUPABASE EDGE FUNCTION
 //
 // This is the piece that automatically unlocks a program the moment
-// someone pays, revokes it the moment you refund them, and sends a
-// welcome email pointing them to create their account. It can't run on
-// GitHub Pages (that's static hosting only) — it runs on Supabase's own
-// servers instead, which is included free.
+// someone pays, revokes it on refund or subscription cancellation, and
+// sends a welcome email pointing them to create their account. It can't
+// run on GitHub Pages (that's static hosting only) — it runs on Supabase's
+// own servers instead, which is included free.
 //
-// Handles three Stripe events:
+// Handles both one-time programs (4-Week Kickstart, Built For More, The
+// Phenom Regime) and recurring ones (Custom Coaching 1:1 — monthly
+// subscription). Stripe events handled:
 //  - checkout.session.completed → grants access (directly if the buyer was
-//    already logged in, otherwise via pending_access — see supabase-schema.sql)
-//    and sends the welcome email.
-//  - charge.refunded → finds the matching purchase by payment intent and
-//    marks it 'refunded'. RLS then blocks that program's content immediately —
-//    no separate step needed.
-//  - charge.refunded on a purchase that hadn't converted to an account yet →
-//    deletes the pending_access row so it can never be claimed.
+//    already logged in, otherwise via pending_access — see supabase-schema.sql).
+//    For a subscription purchase, also stores the subscription id, customer
+//    id, and current billing period end. Sends the welcome email either way.
+//  - charge.refunded → (one-time programs) finds the matching purchase by
+//    payment intent and marks it 'refunded'. RLS then blocks that program's
+//    content immediately — no separate step needed. If the refund happens
+//    before the buyer ever created an account, clears the pending_access
+//    row instead so it can never be claimed.
+//  - customer.subscription.updated → (recurring programs) keeps
+//    cancel_at_period_end and current_period_end in sync — covers both a
+//    cancellation made through cancel-subscription (this project's own
+//    function) and any change made directly in Stripe's dashboard.
+//  - customer.subscription.deleted → (recurring programs) fires once a
+//    canceled subscription's paid period actually ends. Marks the purchase
+//    'canceled', which blocks that program's content the same way a refund
+//    does on a one-time program.
 //
 // IMPORTANT: make sure each Stripe Payment Link has email collection turned
 // on (it's on by default) so `session.customer_details.email` is always present.
@@ -36,8 +47,11 @@
 // 3. Deploy:
 //      supabase functions deploy stripe-webhook --no-verify-jwt
 // 4. In Stripe Dashboard → Developers → Webhooks → Add endpoint, use the
-//    deployed function URL, and subscribe to BOTH "checkout.session.completed"
-//    AND "charge.refunded".
+//    deployed function URL, and subscribe to ALL FOUR of:
+//      checkout.session.completed
+//      charge.refunded
+//      customer.subscription.updated
+//      customer.subscription.deleted
 // 5. Map each Stripe Price/Product to a program_id below in PRICE_TO_PROGRAM.
 // 6. Update SITE_URL and FROM_EMAIL below.
 // ═══════════════════════════════════════════════════════════════
@@ -62,7 +76,7 @@ const PRICE_TO_PROGRAM: Record<string, string> = {
   'price_XXXXXXXXXXXXXX_KICKSTART': 'kickstart-4wk',
   'price_XXXXXXXXXXXXXX_BUILTFORMORE': 'built-for-more-6wk',
   'price_XXXXXXXXXXXXXX_PHENOM': 'phenom-regime-8wk',
-  'price_XXXXXXXXXXXXXX_COACHING': 'coaching-1on1',
+  'price_XXXXXXXXXXXXXX_COACHING': 'coaching-1on1', // this one should be your RECURRING (monthly) price
 };
 
 const PROGRAM_NAMES: Record<string, string> = {
@@ -122,7 +136,7 @@ Deno.serve(async (req) => {
     return new Response(`Webhook signature verification failed: ${err.message}`, { status: 400 });
   }
 
-  // ── PURCHASE ──
+  // ── PURCHASE (one-time OR the first payment of a subscription) ──
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session;
 
@@ -139,6 +153,19 @@ Deno.serve(async (req) => {
     const userId = session.client_reference_id; // present only if the buyer was already logged in (buying an additional program)
     const email = session.customer_details?.email;
 
+    // Subscription-specific fields — only present when session.mode === 'subscription'
+    // (i.e. a recurring program like Custom Coaching, not a one-time program).
+    let subscriptionId: string | null = null;
+    let customerId: string | null = null;
+    let currentPeriodEnd: string | null = null;
+
+    if (session.mode === 'subscription' && session.subscription) {
+      subscriptionId = typeof session.subscription === 'string' ? session.subscription : session.subscription.id;
+      customerId = typeof session.customer === 'string' ? session.customer : session.customer?.id ?? null;
+      const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+      currentPeriodEnd = new Date(subscription.current_period_end * 1000).toISOString();
+    }
+
     if (userId) {
       // Already has an account — credit the purchase directly.
       const { error } = await supabaseAdmin
@@ -148,6 +175,10 @@ Deno.serve(async (req) => {
           program_id: programId,
           stripe_session_id: session.id,
           stripe_payment_intent: paymentIntentId,
+          stripe_subscription_id: subscriptionId,
+          stripe_customer_id: customerId,
+          current_period_end: currentPeriodEnd,
+          cancel_at_period_end: false,
           status: 'active',
         }, { onConflict: 'user_id,program_id' });
 
@@ -172,12 +203,18 @@ Deno.serve(async (req) => {
           program_id: programId,
           stripe_session_id: session.id,
           stripe_payment_intent: paymentIntentId,
+          stripe_subscription_id: subscriptionId,
+          stripe_customer_id: customerId,
         }, { onConflict: 'email,program_id' });
 
       if (error) {
         console.error('Failed to record pending access:', error);
         return new Response('Database error', { status: 500 });
       }
+      // Note: current_period_end isn't stored on pending_access — it gets
+      // set the moment the subscription's next "customer.subscription.updated"
+      // event arrives after the purchase row exists, which happens naturally
+      // within the first billing cycle. Access itself isn't affected either way.
     }
 
     if (email) {
@@ -185,7 +222,7 @@ Deno.serve(async (req) => {
     }
   }
 
-  // ── REFUND ──
+  // ── REFUND (one-time programs) ──
   // Revokes access the moment you refund someone in Stripe. Covers both a
   // refund on an existing account (flip purchases.status to 'refunded' —
   // RLS then blocks program_content immediately) and a refund that happens
@@ -221,6 +258,47 @@ Deno.serve(async (req) => {
       if (pendingErr) {
         console.error('Failed to clear pending access on refund:', pendingErr);
       }
+    }
+  }
+
+  // ── SUBSCRIPTION UPDATED (recurring programs) ──
+  // Fires whenever a subscription changes — including right after someone
+  // uses the cancel-subscription function (this project's own), or if you
+  // change something directly in the Stripe dashboard. Keeps the client's
+  // "canceling on [date]" status in the app accurate either way.
+  if (event.type === 'customer.subscription.updated') {
+    const subscription = event.data.object as Stripe.Subscription;
+
+    const { error } = await supabaseAdmin
+      .from('purchases')
+      .update({
+        cancel_at_period_end: subscription.cancel_at_period_end,
+        current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+      })
+      .eq('stripe_subscription_id', subscription.id);
+
+    if (error) {
+      console.error('Failed to sync subscription update:', error);
+      return new Response('Database error', { status: 500 });
+    }
+  }
+
+  // ── SUBSCRIPTION DELETED (recurring programs) ──
+  // Fires once a canceled subscription's paid period actually ends (not the
+  // moment someone clicks "Cancel" — that just schedules it via
+  // cancel_at_period_end, see the event above). This is when access actually
+  // goes away, the same way a refund does for a one-time program.
+  if (event.type === 'customer.subscription.deleted') {
+    const subscription = event.data.object as Stripe.Subscription;
+
+    const { error } = await supabaseAdmin
+      .from('purchases')
+      .update({ status: 'canceled' })
+      .eq('stripe_subscription_id', subscription.id);
+
+    if (error) {
+      console.error('Failed to mark subscription canceled:', error);
+      return new Response('Database error', { status: 500 });
     }
   }
 

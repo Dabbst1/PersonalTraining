@@ -49,6 +49,13 @@
       <div class="form-error" id="password-message"></div>
     </form>
   </div>
+
+  <div class="card" id="subscription-card" style="margin-top: 24px; display: none;">
+    <h3 style="font-family:'Barlow Condensed',sans-serif; font-size:0.9rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--grey); margin-bottom:16px;">Coaching Subscription</h3>
+    <div id="subscription-status" style="font-size: 0.9rem; color: var(--light-grey); line-height: 1.6; margin-bottom: 16px;"></div>
+    <button class="btn-ghost" id="subscription-action-btn"></button>
+    <div class="form-error" id="subscription-message"></div>
+  </div>
 </main>
 
 <footer>
@@ -67,7 +74,78 @@
       return;
     }
     document.getElementById('email-input').value = session.user.email || '';
+    await loadSubscriptionStatus();
   }
+
+  async function loadSubscriptionStatus() {
+    // Only ever shown for a recurring program — currently just Custom
+    // Coaching (1:1). Everything else on this site is a one-time purchase,
+    // so this card simply stays hidden for clients without a subscription.
+    const { data: purchase } = await supabaseClient
+      .from('purchases')
+      .select('*')
+      .eq('program_id', 'coaching-1on1')
+      .in('status', ['active'])
+      .single();
+
+    const card = document.getElementById('subscription-card');
+    if (!purchase || !purchase.stripe_subscription_id) {
+      card.style.display = 'none';
+      return;
+    }
+
+    card.style.display = 'block';
+    renderSubscriptionStatus(purchase);
+  }
+
+  function renderSubscriptionStatus(purchase) {
+    const statusEl = document.getElementById('subscription-status');
+    const btn = document.getElementById('subscription-action-btn');
+    const periodEndStr = purchase.current_period_end
+      ? new Date(purchase.current_period_end).toLocaleDateString('default', { month: 'long', day: 'numeric', year: 'numeric' })
+      : null;
+
+    if (purchase.cancel_at_period_end) {
+      statusEl.innerHTML = `Your coaching subscription is set to end${periodEndStr ? ' on <strong style="color:var(--white);">' + periodEndStr + '</strong>' : ''}. You'll keep full access until then.`;
+      btn.textContent = 'Resume Subscription';
+      btn.dataset.action = 'resume';
+    } else {
+      statusEl.innerHTML = `Your coaching subscription is active${periodEndStr ? ' and renews on <strong style="color:var(--white);">' + periodEndStr + '</strong>' : ''}.`;
+      btn.textContent = 'Cancel Subscription';
+      btn.dataset.action = 'cancel';
+    }
+  }
+
+  document.getElementById('subscription-action-btn').addEventListener('click', async (e) => {
+    const action = e.target.dataset.action;
+    const msg = document.getElementById('subscription-message');
+    msg.className = 'form-error';
+    msg.textContent = '';
+
+    if (action === 'cancel') {
+      const confirmed = confirm("Cancel your coaching subscription? You'll keep access until the end of your current billing period, then it won't renew.");
+      if (!confirmed) return;
+    }
+
+    e.target.disabled = true;
+    e.target.textContent = 'Please wait...';
+
+    const { data, error } = await supabaseClient.functions.invoke('cancel-subscription', {
+      body: { program_id: 'coaching-1on1', action }
+    });
+
+    e.target.disabled = false;
+
+    if (error || data?.error) {
+      msg.textContent = data?.error || 'Something went wrong — please try again or reach out via Messages.';
+      e.target.textContent = action === 'cancel' ? 'Cancel Subscription' : 'Resume Subscription';
+      return;
+    }
+
+    msg.className = 'form-success';
+    msg.textContent = action === 'cancel' ? 'Your subscription is set to end at your next billing date.' : 'Your subscription will continue renewing as normal.';
+    await loadSubscriptionStatus();
+  });
 
   document.getElementById('email-form').addEventListener('submit', async (e) => {
     e.preventDefault();

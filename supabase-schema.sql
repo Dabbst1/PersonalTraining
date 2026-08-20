@@ -62,8 +62,12 @@ create table purchases (
   user_id uuid not null references auth.users(id) on delete cascade,
   program_id text not null references programs(id),
   stripe_session_id text,
-  stripe_payment_intent text,             -- used to match Stripe refund events back to this row
-  status text not null default 'active',  -- 'active' | 'refunded'
+  stripe_payment_intent text,             -- used to match Stripe refund events back to this row (one-time programs)
+  stripe_subscription_id text,            -- used to match subscription events + let the client cancel (recurring programs, e.g. 1:1 coaching)
+  stripe_customer_id text,
+  cancel_at_period_end boolean not null default false,  -- true once a cancellation is scheduled but the paid period hasn't ended yet
+  current_period_end timestamptz,         -- when a canceling subscription actually loses access
+  status text not null default 'active',  -- 'active' | 'refunded' | 'canceled'
   created_at timestamptz default now(),
   unique(user_id, program_id)
 );
@@ -82,6 +86,8 @@ create table pending_access (
   program_id text not null references programs(id),
   stripe_session_id text,
   stripe_payment_intent text,
+  stripe_subscription_id text,
+  stripe_customer_id text,
   created_at timestamptz default now(),
   unique(email, program_id)
 );
@@ -281,8 +287,8 @@ begin
   for matched in
     select * from pending_access where lower(email) = lower(new.email)
   loop
-    insert into purchases (user_id, program_id, stripe_session_id, stripe_payment_intent, status)
-    values (new.id, matched.program_id, matched.stripe_session_id, matched.stripe_payment_intent, 'active')
+    insert into purchases (user_id, program_id, stripe_session_id, stripe_payment_intent, stripe_subscription_id, stripe_customer_id, status)
+    values (new.id, matched.program_id, matched.stripe_session_id, matched.stripe_payment_intent, matched.stripe_subscription_id, matched.stripe_customer_id, 'active')
     on conflict (user_id, program_id) do nothing;
   end loop;
 
