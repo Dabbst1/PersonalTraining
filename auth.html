@@ -62,7 +62,7 @@
 
       <div class="waiver-field" id="waiver-field" style="display:none;">
         <input type="checkbox" id="waiver-checkbox">
-        <label for="waiver-checkbox">I acknowledge the training programs on this site involve physical exertion and inherent risk, and I release Built For More / The Phenom Regime from liability for injury. I've read the <a href="#" id="waiver-link">full waiver</a>.</label>
+        <label for="waiver-checkbox">I acknowledge the training programs on this site involve physical exertion and inherent risk, and I release Built For More / The Phenom Regime from liability for injury. I've read the <a href="waiver.html" target="_blank" id="waiver-link">full waiver</a>.</label>
       </div>
 
       <button type="submit" class="btn-primary" id="submit-btn" style="width: 100%;">Log In</button>
@@ -94,6 +94,11 @@
   const waiverCheckbox = document.getElementById('waiver-checkbox');
   let mode = 'login';
 
+  // Waiver text on waiver.html is still a draft awaiting attorney review —
+  // flip this to true once it's finalized, and the checkbox + requirement
+  // come back automatically. Nothing else needs to change.
+  const WAIVER_ENABLED = false;
+
   function setMode(next) {
     mode = next;
     tabLogin.classList.toggle('active', mode === 'login');
@@ -103,7 +108,7 @@
     forgotLink.style.display = mode === 'login' ? 'block' : 'none';
     document.getElementById('name-field').style.display = mode === 'signup' ? 'flex' : 'none';
     document.getElementById('full-name').required = mode === 'signup';
-    waiverField.style.display = mode === 'signup' ? 'flex' : 'none';
+    waiverField.style.display = (mode === 'signup' && WAIVER_ENABLED) ? 'flex' : 'none';
     messageEl.textContent = '';
     messageEl.className = 'form-error';
   }
@@ -132,11 +137,6 @@
     messageEl.textContent = 'Check your email for a password reset link.';
   });
 
-  document.getElementById('waiver-link').addEventListener('click', (e) => {
-    e.preventDefault();
-    alert('Full waiver text goes here — replace this alert with a link to your actual liability waiver document.');
-  });
-
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     messageEl.textContent = '';
@@ -156,7 +156,7 @@
       return;
     }
 
-    if (mode === 'signup' && !waiverCheckbox.checked) {
+    if (mode === 'signup' && WAIVER_ENABLED && !waiverCheckbox.checked) {
       messageEl.textContent = 'Please check the waiver acknowledgment to continue.';
       return;
     }
@@ -195,8 +195,12 @@
 
         if (data.session) {
           // Email confirmation is off in this Supabase project — they're logged in immediately.
-          // Record the waiver acceptance now that we have a real user id.
-          await supabaseClient.from('waiver_acceptances').insert({ user_id: data.user.id });
+          // Record the waiver acceptance now that we have a real user id — only
+          // once the waiver is actually live; recording an "acceptance" for
+          // something they were never shown would be meaningless (and misleading).
+          if (WAIVER_ENABLED) {
+            await supabaseClient.from('waiver_acceptances').insert({ user_id: data.user.id });
+          }
           window.location.href = 'dashboard.html';
         } else {
           messageEl.className = 'form-success';
