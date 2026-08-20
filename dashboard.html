@@ -12,39 +12,15 @@
   main { max-width: 1000px; }
 
   /* CONTENT PROTECTION
-     Screenshots can never be fully blocked — that happens at the OS level,
-     outside any website's control. What's below does two real things instead:
-     (1) a personalized watermark on every program view, so any screenshot
-     that does get shared is traceable back to the account it came from, and
-     (2) disables the easy one-click paths (select-all/copy, right-click save,
-     printing to PDF) so casual copying takes real effort instead of one click. */
+     Screenshots can't be blocked — that happens at the OS level, outside
+     any website's control. This disables the easy one-click copy paths
+     instead (select-all/copy, right-click save, printing to PDF), so
+     casual copying takes real effort rather than one click. */
   #program-content-area {
     position: relative;
     -webkit-user-select: none;
     -moz-user-select: none;
     user-select: none;
-  }
-  #watermark-layer {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    z-index: 5;
-    overflow: hidden;
-    opacity: 0.06;
-  }
-  #watermark-layer .wm-row {
-    display: flex;
-    white-space: nowrap;
-    transform: rotate(-28deg);
-    margin-bottom: 64px;
-  }
-  #watermark-layer .wm-row span {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 1.1rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    color: var(--white);
-    margin-right: 64px;
   }
   @media print {
     #program-content-area { display: none !important; }
@@ -158,13 +134,12 @@
     <div id="program-switcher-bar" style="display:none; margin-bottom: 24px;"></div>
     <div id="renewal-banner" style="display:none;"></div>
     <div id="program-content-area">
-      <div id="watermark-layer"></div>
       <div class="program-header">
         <div>
           <div class="section-label">Your Program</div>
           <h1 class="section-title" id="program-name">—</h1>
           <p class="program-desc" id="program-desc"></p>
-          <p class="program-license-notice">This program is licensed to your account only. Please don't copy, screenshot, or share it — every view is watermarked to your account.</p>
+          <p class="program-license-notice">This program is licensed to your account only. Please don't copy, screenshot, or share it.</p>
         </div>
       </div>
 
@@ -324,7 +299,6 @@
   function renderProgram() {
     document.getElementById('program-name').textContent = currentProgram.name;
     document.getElementById('program-desc').textContent = currentProgram.description || '';
-    renderWatermark();
 
     const weeksEl = document.getElementById('program-weeks');
     weeksEl.innerHTML = '';
@@ -386,27 +360,9 @@
 
   // ── CONTENT PROTECTION ──
   // See the CSS comment above #program-content-area for what this can and
-  // can't do. This tiles the logged-in user's email across the program view
-  // (near-invisible, but present in any screenshot) and blocks the easy
-  // one-click copy paths. It cannot block OS-level screenshots or a second
-  // camera — nothing running in a browser can.
-  function renderWatermark() {
-    const layer = document.getElementById('watermark-layer');
-    if (!layer || !currentUser) return;
-    const label = (currentUser.email || 'Built For More') + '  •  Licensed to this account only';
-    layer.innerHTML = '';
-    for (let row = 0; row < 14; row++) {
-      const rowEl = document.createElement('div');
-      rowEl.className = 'wm-row';
-      for (let col = 0; col < 6; col++) {
-        const span = document.createElement('span');
-        span.textContent = label;
-        rowEl.appendChild(span);
-      }
-      layer.appendChild(rowEl);
-    }
-  }
-
+  // can't do. Blocks the easy one-click copy paths. It cannot block
+  // OS-level screenshots or a second camera — nothing running in a
+  // browser can.
   const protectedArea = document.getElementById('program-content-area');
   if (protectedArea) {
     protectedArea.addEventListener('contextmenu', (e) => e.preventDefault());
