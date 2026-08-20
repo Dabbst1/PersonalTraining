@@ -131,6 +131,10 @@
     font-family: 'Barlow Condensed', sans-serif; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--grey);
     margin-top: 4px;
   }
+  .weekly-chart-title {
+    font-family: 'Barlow Condensed', sans-serif; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--grey); margin-bottom: 8px;
+  }
   .weekly-chart { display: flex; align-items: flex-end; gap: 6px; height: 70px; }
   .weekly-bar {
     flex: 1; background: var(--border); position: relative; min-height: 4px;
@@ -345,28 +349,23 @@
     const el = document.getElementById('progress-summary');
     const streak = computeStreak();
 
-    // Check-ins per week for the last 8 weeks (oldest first).
-    const weekCounts = [];
-    const weekLabels = [];
+    // Last 14 days, oldest on the left, today on the right — same direction
+    // you'd read a normal calendar, so it's obvious at a glance without
+    // needing to decode any shorthand.
+    const dayResults = [];
+    const dayLabels = [];
     const today = new Date();
-    for (let w = 7; w >= 0; w--) {
-      const weekStart = new Date(today);
-      weekStart.setDate(weekStart.getDate() - (w * 7) - today.getDay());
-      let count = 0;
-      for (let d = 0; d < 7; d++) {
-        const day = new Date(weekStart);
-        day.setDate(day.getDate() + d);
-        if (workoutLogs[formatDateStr(day)]) count++;
-      }
-      weekCounts.push(count);
-      weekLabels.push(w === 0 ? 'This wk' : `-${w}w`);
+    for (let i = 13; i >= 0; i--) {
+      const day = new Date(today);
+      day.setDate(day.getDate() - i);
+      dayResults.push(!!workoutLogs[formatDateStr(day)]);
+      dayLabels.push(i === 0 ? 'Today' : day.toLocaleDateString('default', { weekday: 'narrow' }));
     }
-    const maxCount = Math.max(1, ...weekCounts);
 
-    const bars = weekCounts.map(c =>
-      `<div class="weekly-bar" style="height:100%;"><div class="weekly-bar-fill" style="height:${(c / maxCount) * 100}%;"></div></div>`
+    const bars = dayResults.map(logged =>
+      `<div class="weekly-bar" style="height:100%;"><div class="weekly-bar-fill" style="height:${logged ? 100 : 0}%;"></div></div>`
     ).join('');
-    const labels = weekLabels.map(l => `<span>${l}</span>`).join('');
+    const labels = dayLabels.map(l => `<span>${l}</span>`).join('');
 
     el.innerHTML = `
       <div class="streak-block">
@@ -374,6 +373,7 @@
         <div class="streak-label">Day${streak === 1 ? '' : 's'} Streak</div>
       </div>
       <div>
+        <div class="weekly-chart-title">Last 14 Days</div>
         <div class="weekly-chart">${bars}</div>
         <div class="weekly-chart-labels">${labels}</div>
       </div>
