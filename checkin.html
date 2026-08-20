@@ -111,6 +111,7 @@
     padding: 10px; width: 100%; cursor: pointer; margin: 8px 0 20px;
   }
   .add-exercise-btn:hover { border-color: var(--grey); color: var(--white); }
+  .modal-hint { font-size: 0.82rem; color: var(--grey); margin-bottom: 16px; line-height: 1.5; }
   .modal-actions { display: flex; gap: 12px; margin-top: 20px; }
   .modal-actions .btn-primary, .modal-actions .btn-ghost { flex: 1; text-align: center; }
 
@@ -168,6 +169,7 @@
   <ul class="nav-links">
     <li><a href="dashboard.html" class="client-tab">My Program</a></li>
     <li><a href="checkin.html" class="client-tab active">Check In</a></li>
+    <li><a href="messages.html" class="client-tab">Messages</a></li>
     <li><a href="account.html" class="client-tab">Account</a></li>
     <li><a href="admin.html" id="admin-link" style="display:none;">Admin</a></li>
     <li><a href="#" id="logout-link">Log Out</a></li>
@@ -216,9 +218,10 @@
 <div class="modal-overlay" id="modal-overlay">
   <div class="modal">
     <div class="modal-title" id="modal-date-label">Log Workout</div>
+    <p class="modal-hint">Did something different today? Change any exercise below, or add a new one.</p>
     <div id="exercise-list"></div>
     <datalist id="exercise-suggestions"></datalist>
-    <button type="button" class="add-exercise-btn" id="add-exercise-btn">+ Add Exercise</button>
+    <button type="button" class="add-exercise-btn" id="add-exercise-btn">+ Add Exercise Not On This List</button>
     <div class="form-field">
       <label>Notes</label>
       <textarea id="log-notes" placeholder="How did it feel? Anything to remember for next time?"></textarea>
@@ -535,7 +538,7 @@
     if (!included) row.classList.add('skipped');
     row.innerHTML = `
       <input type="checkbox" class="ex-include" title="Include this exercise in today's check-in" ${included ? 'checked' : ''}>
-      <input type="text" placeholder="Exercise" class="ex-name" list="exercise-suggestions" value="${name}">
+      <input type="text" placeholder="Type any exercise..." class="ex-name" list="exercise-suggestions" value="${name}">
       <select class="ex-sets">${numberOptionsHtml(sets, 10)}</select>
       <select class="ex-reps">${numberOptionsHtml(reps, 30)}</select>
       <input type="text" placeholder="Weight" class="ex-weight" value="${weight}">

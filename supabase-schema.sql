@@ -17,7 +17,9 @@ drop function if exists public.handle_new_user_purchase_check();
 drop function if exists public.email_has_pending_purchase(text);
 drop function if exists public.is_admin();
 drop function if exists public.admin_list_clients();
+drop function if exists public.admin_list_conversations();
 drop table if exists waiver_acceptances cascade;
+drop table if exists messages cascade;
 drop table if exists workout_logs cascade;
 drop table if exists program_content cascade;
 drop table if exists purchases cascade;
@@ -350,6 +352,136 @@ $$;
 
 grant execute on function public.admin_list_clients() to authenticated;
 
+-- One row per client who could message (or has messaged) — their last
+-- message and how many of their messages an admin hasn't read yet, so the
+-- admin inbox can show who needs a reply without opening every thread.
+create or replace function public.admin_message_overview()
+returns table (
+  client_id uuid,
+  email text,
+  full_name text,
+  last_message text,
+  last_message_at timestamptz,
+  unread_count bigint
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not is_admin() then
+    return;
+  end if;
+
+  return query
+    select
+      u.id as client_id,
+      u.email::text,
+      (u.raw_user_meta_data ->> 'full_name')::text as full_name,
+      (select m.body from messages m where m.client_id = u.id order by m.created_at desc limit 1) as last_message,
+      (select max(m.created_at) from messages m where m.client_id = u.id) as last_message_at,
+      (select count(*) from messages m where m.client_id = u.id and m.sender_id = u.id and m.read_at is null) as unread_count
+    from auth.users u
+    where exists (select 1 from purchases p where p.user_id = u.id and p.status = 'active')
+       or exists (select 1 from messages m where m.client_id = u.id)
+    order by last_message_at desc nulls last;
+end;
+$$;
+
+grant execute on function public.admin_message_overview() to authenticated;
+
+-- ─────────────────────────────────────────────────────────────
+-- MESSAGES — one conversation thread per client. Any admin can see and
+-- reply in any client's thread (so if you add staff later, they share the
+-- same inbox); a client only ever sees their own thread.
+--
+-- sender_name and sender_is_admin are stored directly on each message
+-- (rather than looked up via a join) to keep this simple — auth.users
+-- isn't otherwise queryable by clients, and this avoids needing an extra
+-- function just to resolve "who sent this."
+-- ─────────────────────────────────────────────────────────────
+
+create table messages (
+  id uuid primary key default gen_random_uuid(),
+  thread_user_id uuid not null references auth.users(id) on delete cascade, -- whose conversation this belongs to
+  sender_id uuid not null references auth.users(id) on delete cascade,
+  sender_name text not null,
+  sender_is_admin boolean not null default false,
+  body text not null,
+  created_at timestamptz default now(),
+  read_at timestamptz
+);
+
+alter table messages enable row level security;
+
+-- A client sees only their own thread; an admin sees every thread.
+create policy "View own thread, admins view all"
+  on messages for select
+  using (thread_user_id = auth.uid() or is_admin());
+
+-- A client can only post into their own thread, and can never mark
+-- themselves as an admin sender.
+create policy "Clients can send in their own thread"
+  on messages for insert
+  with check (thread_user_id = auth.uid() and sender_id = auth.uid() and sender_is_admin = false);
+
+-- An admin can post into any client's thread.
+create policy "Admins can send in any thread"
+  on messages for insert
+  with check (is_admin() and sender_id = auth.uid() and sender_is_admin = true);
+
+-- Marking messages read (by either side, in a thread they can already see).
+create policy "Mark messages as read"
+  on messages for update
+  using (thread_user_id = auth.uid() or is_admin())
+  with check (thread_user_id = auth.uid() or is_admin());
+
+-- One row per client who's ever purchased, with their most recent message
+-- and how many of their messages you haven't read yet — everything the
+-- admin inbox list needs in one call. Restricted to admins only.
+create or replace function public.admin_list_conversations()
+returns table (
+  user_id uuid,
+  full_name text,
+  email text,
+  last_body text,
+  last_at timestamptz,
+  unread_count bigint
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not is_admin() then
+    return;
+  end if;
+
+  return query
+    select
+      u.id as user_id,
+      (u.raw_user_meta_data ->> 'full_name')::text as full_name,
+      u.email::text,
+      lm.body as last_body,
+      lm.created_at as last_at,
+      coalesce(uc.unread_count, 0) as unread_count
+    from (select distinct user_id from purchases) pu
+    join auth.users u on u.id = pu.user_id
+    left join lateral (
+      select body, created_at from messages m
+      where m.thread_user_id = u.id
+      order by created_at desc limit 1
+    ) lm on true
+    left join lateral (
+      select count(*) as unread_count from messages m2
+      where m2.thread_user_id = u.id and m2.sender_is_admin = false and m2.read_at is null
+    ) uc on true
+    order by lm.created_at desc nulls last, u.email asc;
+end;
+$$;
+
+grant execute on function public.admin_list_conversations() to authenticated;
+
 -- ─────────────────────────────────────────────────────────────
 -- SITE SETTINGS — simple on/off switches an admin can flip from the
 -- website itself, without editing any code or re-uploading anything.
@@ -388,6 +520,50 @@ create policy "Only admins can add new settings"
 insert into app_settings (key, value) values
   ('waiver_enabled', 'false')
 on conflict (key) do nothing;
+
+-- ─────────────────────────────────────────────────────────────
+-- MESSAGES — one thread per client, any admin can see and reply to any
+-- client's thread. Not a general inbox between arbitrary users — every
+-- message belongs to exactly one client_id, whether the client or an
+-- admin actually wrote it.
+-- ─────────────────────────────────────────────────────────────
+
+create table if not exists messages (
+  id uuid primary key default gen_random_uuid(),
+  client_id uuid not null references auth.users(id) on delete cascade,
+  sender_id uuid not null references auth.users(id) on delete cascade,
+  body text not null,
+  created_at timestamptz default now(),
+  read_at timestamptz
+);
+
+create index if not exists messages_client_id_idx on messages(client_id, created_at);
+
+alter table messages enable row level security;
+
+drop policy if exists "Clients see their own thread, admins see all" on messages;
+create policy "Clients see their own thread, admins see all"
+  on messages for select
+  using (auth.uid() = client_id or is_admin());
+
+-- A client can only ever post into their own thread, as themselves.
+-- An admin can post into any thread, also as themselves — never pretending
+-- to be the client or another admin.
+drop policy if exists "Clients post to their own thread, admins post to any" on messages;
+create policy "Clients post to their own thread, admins post to any"
+  on messages for insert
+  with check (
+    sender_id = auth.uid()
+    and (client_id = auth.uid() or is_admin())
+  );
+
+-- Marking a message read — either side can update read_at on messages in
+-- a thread they're allowed to see.
+drop policy if exists "Read receipts within a visible thread" on messages;
+create policy "Read receipts within a visible thread"
+  on messages for update
+  using (auth.uid() = client_id or is_admin())
+  with check (auth.uid() = client_id or is_admin());
 
 -- ─────────────────────────────────────────────────────────────
 -- SEED DATA — public program info
