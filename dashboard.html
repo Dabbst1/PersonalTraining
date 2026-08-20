@@ -82,6 +82,28 @@
   }
   .day-card li::before { content: '—'; position: absolute; left: 0; color: var(--grey); }
 
+  #week-nav {
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+  }
+  #week-nav button {
+    background: var(--card); border: 1px solid var(--border); color: var(--white);
+    font-family: 'Barlow Condensed', sans-serif; font-size: 0.85rem; letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 12px 20px; cursor: pointer;
+  }
+  #week-nav button:hover:not(:disabled) { border-color: var(--red); }
+  #week-nav button:disabled { opacity: 0.3; cursor: default; }
+  .week-nav-label {
+    font-family: 'Barlow Condensed', sans-serif; font-size: 0.85rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--grey);
+  }
+  @media (max-width: 600px) {
+    #week-nav button { padding: 10px 14px; font-size: 0.75rem; }
+  }
+
   .program-switcher-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
   .program-switcher-tabs button {
     background: var(--card); border: 1px solid var(--border); color: var(--light-grey);
@@ -90,6 +112,15 @@
   }
   .program-switcher-tabs button.active { border-color: var(--red); color: var(--white); }
   .program-switcher-tabs button:hover { border-color: var(--grey); }
+
+  .day-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 20px; }
+  .day-tabs button {
+    background: var(--card); border: 1px solid var(--border); color: var(--light-grey);
+    font-family: 'Barlow Condensed', sans-serif; font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 8px 14px; cursor: pointer;
+  }
+  .day-tabs button.active { border-color: var(--red); color: var(--white); background: rgba(200,16,46,0.1); }
+  .day-tabs button:hover:not(.active) { border-color: var(--grey); }
 
   .renewal-banner {
     background: linear-gradient(135deg, rgba(200,16,46,0.15), rgba(200,16,46,0.03));
@@ -144,6 +175,8 @@
       </div>
 
       <div id="program-weeks"></div>
+
+      <div id="week-nav" style="display:none;"></div>
     </div>
 
     <div style="margin-top: 56px; padding-top: 32px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
@@ -164,6 +197,8 @@
   let currentUser = null;
   let currentPurchase = null;
   let currentProgram = null;
+  let currentWeekIndex = 0;
+  let selectedDayName = null; // null = not yet decided; defaults to today's weekday on first render
 
   const loadingState = document.getElementById('loading-state');
   const noAccessState = document.getElementById('no-access-state');
@@ -251,6 +286,7 @@
   async function loadProgram(purchase) {
     currentPurchase = purchase;
     currentProgram = purchase.programs;
+    selectedDayName = null; // reset the day filter when switching programs, so it re-detects today's weekday
     sessionStorage.setItem('bfm_active_program', purchase.program_id);
     updateSwitcherActiveState(purchase.program_id);
 
@@ -270,6 +306,14 @@
       return;
     }
     currentProgram.content = contentRow.content;
+
+    // Default to whichever week the client is actually on, based on how
+    // long it's been since they purchased — not always Week 1.
+    currentWeekIndex = 0;
+    if (currentPurchase.created_at && currentProgram.content.length) {
+      const daysSince = Math.floor((new Date() - new Date(currentPurchase.created_at)) / 86400000);
+      currentWeekIndex = Math.min(Math.max(Math.floor(daysSince / 7), 0), currentProgram.content.length - 1);
+    }
 
     renderProgram();
     renderRenewalBanner();
@@ -299,56 +343,118 @@
   function renderProgram() {
     document.getElementById('program-name').textContent = currentProgram.name;
     document.getElementById('program-desc').textContent = currentProgram.description || '';
+    renderWeek();
+  }
 
+  function renderWeek() {
+    const allWeeks = currentProgram.content || [];
+    const week = allWeeks[currentWeekIndex];
     const weeksEl = document.getElementById('program-weeks');
     weeksEl.innerHTML = '';
-    (currentProgram.content || []).forEach(week => {
-      const block = document.createElement('div');
-      block.className = 'week-block';
-      const heading = document.createElement('div');
-      heading.className = 'week-heading';
-      heading.textContent = 'Week ' + week.week;
-      block.appendChild(heading);
+    if (!week) return;
 
-      if (week.focus) {
-        const focusEl = document.createElement('p');
-        focusEl.style.cssText = 'color: var(--light-grey); font-size: 0.85rem; line-height: 1.6; margin-bottom: 16px;';
-        focusEl.textContent = week.focus;
-        block.appendChild(focusEl);
+    const block = document.createElement('div');
+    block.className = 'week-block';
+    const heading = document.createElement('div');
+    heading.className = 'week-heading';
+    heading.textContent = 'Week ' + week.week;
+    block.appendChild(heading);
+
+    if (week.focus) {
+      const focusEl = document.createElement('p');
+      focusEl.style.cssText = 'color: var(--light-grey); font-size: 0.85rem; line-height: 1.6; margin-bottom: 16px;';
+      focusEl.textContent = week.focus;
+      block.appendChild(focusEl);
+    }
+
+    const days = week.days || [];
+
+    // First time showing a program (or right after switching to one):
+    // default to today's weekday if it's part of this week, otherwise "All
+    // Days". Once the client has made an explicit choice (including
+    // clicking "All Days" themselves), that choice is respected — this
+    // only auto-picks when nothing's been chosen yet.
+    const todayName = new Date().toLocaleDateString('default', { weekday: 'long' });
+    if (selectedDayName === null) {
+      selectedDayName = days.some(d => d.day === todayName) ? todayName : 'all';
+    } else if (selectedDayName !== 'all' && !days.some(d => d.day === selectedDayName)) {
+      // Their previously selected day doesn't exist in this week (e.g. they
+      // paged to a different week) — fall back the same way.
+      selectedDayName = days.some(d => d.day === todayName) ? todayName : 'all';
+    }
+
+    if (days.length > 1) {
+      const dayTabs = document.createElement('div');
+      dayTabs.className = 'day-tabs';
+
+      const allBtn = document.createElement('button');
+      allBtn.textContent = 'All Days';
+      allBtn.classList.toggle('active', selectedDayName === 'all');
+      allBtn.addEventListener('click', () => { selectedDayName = 'all'; renderWeek(); });
+      dayTabs.appendChild(allBtn);
+
+      days.forEach(day => {
+        const btn = document.createElement('button');
+        btn.textContent = day.day;
+        btn.classList.toggle('active', selectedDayName === day.day);
+        btn.addEventListener('click', () => { selectedDayName = day.day; renderWeek(); });
+        dayTabs.appendChild(btn);
+      });
+      block.appendChild(dayTabs);
+    }
+
+    days.forEach(day => {
+      if (selectedDayName !== 'all' && day.day !== selectedDayName) return;
+
+      const card = document.createElement('div');
+      card.className = 'day-card';
+      const h4 = document.createElement('h4');
+      h4.textContent = day.day + ' — ' + day.title;
+      card.appendChild(h4);
+
+      if (day.warmup) {
+        const warmupEl = document.createElement('p');
+        warmupEl.style.cssText = 'font-size: 0.8rem; color: var(--grey); margin-bottom: 10px; font-style: italic;';
+        warmupEl.textContent = 'Warm-up: ' + day.warmup;
+        card.appendChild(warmupEl);
       }
 
-      (week.days || []).forEach(day => {
-        const card = document.createElement('div');
-        card.className = 'day-card';
-        const h4 = document.createElement('h4');
-        h4.textContent = day.day + ' — ' + day.title;
-        card.appendChild(h4);
-
-        if (day.warmup) {
-          const warmupEl = document.createElement('p');
-          warmupEl.style.cssText = 'font-size: 0.8rem; color: var(--grey); margin-bottom: 10px; font-style: italic;';
-          warmupEl.textContent = 'Warm-up: ' + day.warmup;
-          card.appendChild(warmupEl);
-        }
-
-        const ul = document.createElement('ul');
-        (day.exercises || []).forEach(ex => {
-          const li = document.createElement('li');
-          li.textContent = ex;
-          ul.appendChild(li);
-        });
-        card.appendChild(ul);
-
-        if (day.finisher) {
-          const finisherEl = document.createElement('p');
-          finisherEl.style.cssText = 'font-size: 0.85rem; color: var(--light-grey); margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);';
-          finisherEl.innerHTML = '<strong style="color: var(--red);">Finisher:</strong> ' + day.finisher;
-          card.appendChild(finisherEl);
-        }
-
-        block.appendChild(card);
+      const ul = document.createElement('ul');
+      (day.exercises || []).forEach(ex => {
+        const li = document.createElement('li');
+        li.textContent = ex;
+        ul.appendChild(li);
       });
-      weeksEl.appendChild(block);
+      card.appendChild(ul);
+
+      if (day.finisher) {
+        const finisherEl = document.createElement('p');
+        finisherEl.style.cssText = 'font-size: 0.85rem; color: var(--light-grey); margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);';
+        finisherEl.innerHTML = '<strong style="color: var(--red);">Finisher:</strong> ' + day.finisher;
+        card.appendChild(finisherEl);
+      }
+
+      block.appendChild(card);
+    });
+    weeksEl.appendChild(block);
+
+    renderWeekNav(allWeeks.length);
+  }
+
+  function renderWeekNav(totalWeeks) {
+    const nav = document.getElementById('week-nav');
+    if (totalWeeks <= 1) { nav.style.display = 'none'; return; }
+    nav.style.display = 'flex';
+    nav.innerHTML = `
+      <button id="week-prev" ${currentWeekIndex === 0 ? 'disabled' : ''}>&larr; Prev Week</button>
+      <div class="week-nav-label">Week ${currentWeekIndex + 1} of ${totalWeeks}</div>
+      <button id="week-next" ${currentWeekIndex === totalWeeks - 1 ? 'disabled' : ''}>Next Week &rarr;</button>
+    `;
+    document.getElementById('week-prev').addEventListener('click', () => {
+      if (currentWeekIndex > 0) { currentWeekIndex--; renderWeek(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+    });
+    document.getElementById('week-next').addEventListener('click', () => {
+      if (currentWeekIndex < totalWeeks - 1) { currentWeekIndex++; renderWeek(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
     });
   }
 
