@@ -82,15 +82,25 @@
   }
   .exercise-row {
     display: grid;
-    grid-template-columns: 2fr 1fr 1fr 1fr auto;
+    grid-template-columns: auto 2fr 1fr 1fr 1fr auto;
     gap: 8px;
     margin-bottom: 8px;
     align-items: center;
   }
-  .exercise-row input {
+  .exercise-row input,
+  .exercise-row select {
     background: var(--black); border: 1px solid var(--border); color: var(--white);
     padding: 8px 10px; font-size: 0.85rem; font-family: 'Barlow', sans-serif; width: 100%;
   }
+  .exercise-row select { cursor: pointer; }
+  .exercise-row .ex-include {
+    width: 18px; height: 18px; accent-color: var(--red); cursor: pointer; margin: 0;
+  }
+  .exercise-row.skipped input:not(.ex-include),
+  .exercise-row.skipped select {
+    opacity: 0.35;
+  }
+  .exercise-row.skipped .ex-name { text-decoration: line-through; color: var(--grey); }
   .exercise-row button {
     background: none; border: none; color: var(--grey); cursor: pointer; font-size: 1.1rem;
   }
@@ -501,16 +511,43 @@
   const exerciseListEl = document.getElementById('exercise-list');
   const modalMessage = document.getElementById('modal-message');
 
-  function exerciseRow(name = '', sets = '', reps = '', weight = '') {
+  function numberOptionsHtml(selectedValue, max) {
+    let matched = false;
+    let optionsHtml = '<option value="">—</option>';
+    for (let i = 1; i <= max; i++) {
+      const v = String(i);
+      const isSelected = v === String(selectedValue);
+      if (isSelected) matched = true;
+      optionsHtml += `<option value="${v}"${isSelected ? ' selected' : ''}>${v}</option>`;
+    }
+    // If the value being shown isn't a plain number in range — e.g. a target
+    // range like "8-10" carried over from the program's suggested numbers —
+    // add it as its own option instead of silently dropping it.
+    if (selectedValue && !matched) {
+      optionsHtml = `<option value="${selectedValue}" selected>${selectedValue}</option>` + optionsHtml;
+    }
+    return optionsHtml;
+  }
+
+  function exerciseRow(name = '', sets = '', reps = '', weight = '', included = true) {
     const row = document.createElement('div');
     row.className = 'exercise-row';
+    if (!included) row.classList.add('skipped');
     row.innerHTML = `
+      <input type="checkbox" class="ex-include" title="Include this exercise in today's check-in" ${included ? 'checked' : ''}>
       <input type="text" placeholder="Exercise" class="ex-name" list="exercise-suggestions" value="${name}">
-      <input type="text" placeholder="Sets" class="ex-sets" value="${sets}">
-      <input type="text" placeholder="Reps" class="ex-reps" value="${reps}">
+      <select class="ex-sets">${numberOptionsHtml(sets, 10)}</select>
+      <select class="ex-reps">${numberOptionsHtml(reps, 30)}</select>
       <input type="text" placeholder="Weight" class="ex-weight" value="${weight}">
       <button type="button" title="Remove">&times;</button>
     `;
+    const includeBox = row.querySelector('.ex-include');
+    const fields = [row.querySelector('.ex-name'), row.querySelector('.ex-sets'), row.querySelector('.ex-reps'), row.querySelector('.ex-weight')];
+    includeBox.addEventListener('change', () => {
+      row.classList.toggle('skipped', !includeBox.checked);
+      fields.forEach(f => f.disabled = !includeBox.checked);
+    });
+    if (!included) fields.forEach(f => f.disabled = true);
     row.querySelector('button').addEventListener('click', () => row.remove());
     return row;
   }
@@ -560,6 +597,7 @@
     const rows = exerciseListEl.querySelectorAll('.exercise-row');
     const exercises = [];
     rows.forEach(row => {
+      if (!row.querySelector('.ex-include').checked) return; // skipped — not logged
       const name = row.querySelector('.ex-name').value.trim();
       if (!name) return;
       exercises.push({
