@@ -207,6 +207,7 @@
   <div class="modal">
     <div class="modal-title" id="modal-date-label">Log Workout</div>
     <div id="exercise-list"></div>
+    <datalist id="exercise-suggestions"></datalist>
     <button type="button" class="add-exercise-btn" id="add-exercise-btn">+ Add Exercise</button>
     <div class="form-field">
       <label>Notes</label>
@@ -275,6 +276,12 @@
     const savedId = sessionStorage.getItem('bfm_active_program');
     currentProgramId = (purchases.find(p => p.program_id === savedId) || purchases[purchases.length - 1]).program_id;
 
+    // Pull each purchased program's content — same RLS rule as My Program
+    // (only returned because there's an active purchase) — so the check-in
+    // form can suggest that day's actual scheduled exercises instead of
+    // making clients retype them from memory every time.
+    await loadProgramContent();
+
     renderSwitcher();
     await loadWorkoutLogs();
     renderCalendar();
@@ -282,6 +289,65 @@
 
     loadingState.style.display = 'none';
     checkinPageContent.style.display = 'block';
+  }
+
+  let programContentById = {};   // { program_id: content json }
+  let purchaseDateById = {};     // { program_id: created_at }
+
+  async function loadProgramContent() {
+    const { data: purchaseRows } = await supabaseClient
+      .from('purchases')
+      .select('program_id, created_at')
+      .eq('user_id', currentUser.id)
+      .eq('status', 'active');
+    (purchaseRows || []).forEach(p => { purchaseDateById[p.program_id] = p.created_at; });
+
+    const programIds = allPurchases.map(p => p.program_id);
+    const { data: contentRows } = await supabaseClient
+      .from('program_content')
+      .select('program_id, content')
+      .in('program_id', programIds);
+    (contentRows || []).forEach(row => { programContentById[row.program_id] = row.content; });
+  }
+
+  // Figures out which day of the program a given calendar date corresponds
+  // to (based on weeks elapsed since purchase), and returns that day's
+  // scheduled exercises as {name, sets, reps} — used both to suggest names
+  // in the dropdown and to pre-fill a fresh check-in with target numbers.
+  function getScheduledExercises(dateStr) {
+    const content = programContentById[currentProgramId];
+    const purchasedAt = purchaseDateById[currentProgramId];
+    if (!content || !content.length) return [];
+
+    const weekdayName = new Date(dateStr + 'T00:00:00').toLocaleDateString('default', { weekday: 'long' });
+
+    let weekIndex = 0;
+    if (purchasedAt) {
+      const daysSince = Math.floor((new Date(dateStr) - new Date(purchasedAt)) / 86400000);
+      weekIndex = Math.min(Math.max(Math.floor(daysSince / 7), 0), content.length - 1);
+    }
+
+    let dayEntry = (content[weekIndex]?.days || []).find(d => d.day === weekdayName);
+    if (!dayEntry) {
+      // Fallback: search any week for a day matching this weekday name.
+      for (const week of content) {
+        dayEntry = (week.days || []).find(d => d.day === weekdayName);
+        if (dayEntry) break;
+      }
+    }
+    if (!dayEntry) return [];
+
+    // Exercise strings look like "Goblet Squat — 3x8-10, rest 90s" — split
+    // out the name, and lightly parse a sets/reps target where the pattern
+    // is recognizable (e.g. "3x8-10" → sets 3, reps 8-10). If the format
+    // doesn't match cleanly, just leave sets/reps blank rather than guess.
+    return (dayEntry.exercises || [])
+      .map(ex => {
+        const name = ex.split('—')[0].trim();
+        const match = ex.match(/(\d+)\s*x\s*([\d-]+)/i);
+        return { name, sets: match ? match[1] : '', reps: match ? match[2] : '' };
+      })
+      .filter(e => e.name && !/^\d+ (min|round)/i.test(e.name)); // skip circuit/finisher-style lines, not real exercise names
   }
 
   function renderSwitcher() {
@@ -439,7 +505,7 @@
     const row = document.createElement('div');
     row.className = 'exercise-row';
     row.innerHTML = `
-      <input type="text" placeholder="Exercise" class="ex-name" value="${name}">
+      <input type="text" placeholder="Exercise" class="ex-name" list="exercise-suggestions" value="${name}">
       <input type="text" placeholder="Sets" class="ex-sets" value="${sets}">
       <input type="text" placeholder="Reps" class="ex-reps" value="${reps}">
       <input type="text" placeholder="Weight" class="ex-weight" value="${weight}">
@@ -460,12 +526,24 @@
     document.getElementById('modal-date-label').textContent =
       dateObj.toLocaleDateString('default', { weekday: 'long', month: 'long', day: 'numeric' });
 
+    // Suggest that day's scheduled exercises — click to fill instead of
+    // typing, but still just a normal text field, so a substitution or
+    // anything else can be typed in too.
+    const scheduled = getScheduledExercises(dateStr);
+    const suggestionsEl = document.getElementById('exercise-suggestions');
+    suggestionsEl.innerHTML = scheduled.map(e => `<option value="${e.name}"></option>`).join('');
+
     exerciseListEl.innerHTML = '';
     const existing = workoutLogs[dateStr];
     if (existing && existing.exercises && existing.exercises.length) {
       existing.exercises.forEach(ex => {
         exerciseListEl.appendChild(exerciseRow(ex.name || '', ex.sets || '', ex.reps || '', ex.weight || ''));
       });
+    } else if (scheduled.length) {
+      // Nothing logged yet for this day — pre-fill a row per scheduled
+      // exercise, sets/reps included, so most check-ins are just "confirm
+      // the numbers and add weight."
+      scheduled.forEach(e => exerciseListEl.appendChild(exerciseRow(e.name, e.sets, e.reps)));
     } else {
       exerciseListEl.appendChild(exerciseRow());
     }
