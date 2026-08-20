@@ -20,6 +20,7 @@ drop function if exists public.admin_list_clients();
 drop function if exists public.admin_list_conversations();
 drop table if exists waiver_acceptances cascade;
 drop table if exists messages cascade;
+drop table if exists inquiries cascade;
 drop table if exists workout_logs cascade;
 drop table if exists program_content cascade;
 drop table if exists purchases cascade;
@@ -566,6 +567,55 @@ create policy "Read receipts within a visible thread"
   with check (auth.uid() = client_id or is_admin());
 
 -- ─────────────────────────────────────────────────────────────
+-- COACHING INQUIRIES — the "Apply for Coaching" form on the landing page.
+-- Different from `messages` on purpose: whoever fills this out doesn't have
+-- an account yet (or may never create one), so there's no client_id to
+-- attach a message thread to. This is a public intake submission instead —
+-- anyone can submit one, but only admins can ever read them back. Shows up
+-- in the admin inbox (admin-messages.html) alongside real client threads.
+-- ─────────────────────────────────────────────────────────────
+
+create table if not exists inquiries (
+  id uuid primary key default gen_random_uuid(),
+  full_name text not null,
+  email text not null,
+  main_goal text,
+  goal_importance text,
+  already_tried text,
+  biggest_obstacle text,
+  days_per_week text,
+  training_location text,
+  injuries text,
+  coaching_support text,
+  ready_to_invest text,
+  created_at timestamptz default now(),
+  read_at timestamptz
+);
+
+alter table inquiries enable row level security;
+
+-- Anyone can submit one (that's the whole point of a public intake form) —
+-- but the insert is intentionally narrow: it can only ever create a fresh,
+-- unread submission, never touch an existing one.
+drop policy if exists "Anyone can submit a coaching inquiry" on inquiries;
+create policy "Anyone can submit a coaching inquiry"
+  on inquiries for insert
+  with check (read_at is null);
+
+-- Only admins can ever read submissions back — this is private lead
+-- information, not something a public API key should be able to list.
+drop policy if exists "Only admins can view inquiries" on inquiries;
+create policy "Only admins can view inquiries"
+  on inquiries for select
+  using (is_admin());
+
+drop policy if exists "Only admins can update inquiries" on inquiries;
+create policy "Only admins can update inquiries"
+  on inquiries for update
+  using (is_admin())
+  with check (is_admin());
+
+-- ─────────────────────────────────────────────────────────────
 -- SEED DATA — public program info
 -- ─────────────────────────────────────────────────────────────
 
@@ -590,6 +640,13 @@ insert into programs (id, name, weeks, price_cents, description) values
   8,
   14900,
   'The complete 8-week transformation: advanced programming, deep conditioning blocks, and long-range progression tracking.'
+),
+(
+  'coaching-1on1',
+  'Custom Coaching (1:1)',
+  9999, -- ongoing, not a fixed number of weeks — large number keeps the renewal banner from ever firing
+  24900,
+  'Direct, ongoing coaching built around you — a custom program, real accountability, and direct access to your coach for as long as you''re enrolled.'
 )
 on conflict (id) do nothing;
 
@@ -846,6 +903,16 @@ insert into program_content (program_id, content) values
     {"day": "Saturday", "title": "Full Body Power + Conditioning (reduced)", "exercises": ["Power: Box Jump 3x3, Trap-Bar Deadlift 3x3 (light), Push Press 3x4-6", "EMOM 10 min — reduced rounds", "Carry series x2 rounds"], "finisher": "Light core work only"},
     {"day": "Sunday", "title": "Recovery", "exercises": ["No structured training required. Block complete — reassess before starting the next training cycle."]}
   ]}
+]$json$::jsonb
+),
+(
+  'coaching-1on1',
+  $json$[
+  {
+    "week": 1,
+    "focus": "This is a 1:1 coached program — there's no fixed weekly schedule here. Your coach will build your custom plan and share it with you directly through Messages after you enroll. Use the Check In calendar to log your workouts once your plan is set.",
+    "days": []
+  }
 ]$json$::jsonb
 )
 on conflict (program_id) do update set content = excluded.content, updated_at = now();

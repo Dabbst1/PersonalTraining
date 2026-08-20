@@ -13,5 +13,6 @@
 const STRIPE_PAYMENT_LINKS = {
   'kickstart-4wk':        'https://buy.stripe.com/28E00kgAneRY7XV48WdQQ00',
   'built-for-more-6wk':   'https://buy.stripe.com/8x228s5VJh063HF5d0dQQ01',
-  'phenom-regime-8wk':    'https://buy.stripe.com/4gM00kesf9xE3bBodQQ02'
+  'phenom-regime-8wk':    'https://buy.stripe.com/4gM00kesf9xE3bBodQQ02',
+  'coaching-1on1':        '' // e.g. 'https://buy.stripe.com/xxxxxxxx' — create this product + Payment Link the same way as the other three
 };

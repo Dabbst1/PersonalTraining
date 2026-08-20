@@ -377,7 +377,7 @@
   }
   .program-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
     gap: 24px;
     margin-top: 56px;
     align-items: stretch;
@@ -500,22 +500,6 @@
   }
   .programs-footnote p { font-size: 0.9rem; color: var(--grey); max-width: 480px; }
 
-  /* INTAKE FORM */
-  .intake-section { background: var(--dark); }
-  .intake-grid {
-    display: grid;
-    grid-template-columns: 1fr 1.4fr;
-    gap: 80px;
-    margin-top: 60px;
-    align-items: start;
-  }
-  .intake-info p {
-    font-size: 1rem;
-    line-height: 1.75;
-    color: var(--grey);
-    margin-bottom: 32px;
-  }
-  .intake-checklist { display: flex; flex-direction: column; gap: 12px; }
   .check-item {
     display: flex; align-items: flex-start; gap: 12px;
     font-size: 0.9rem;
@@ -528,6 +512,19 @@
     font-size: 0.8rem;
     margin-top: 2px;
     flex-shrink: 0;
+  }
+  .intake-section { background: var(--dark); }
+  .intake-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.4fr;
+    gap: 64px;
+    margin-top: 56px;
+    align-items: start;
+  }
+  .intake-info p {
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--light-grey);
   }
   .form-grid {
     display: grid;
@@ -658,7 +655,7 @@
     <li><a href="#video">Training</a></li>
     <li><a href="#programs">Programs</a></li>
     <li><a href="dashboard.html" class="nav-account" id="nav-account-link">Log In</a></li>
-    <li><a href="#intake" class="nav-cta">Apply Now</a></li>
+    <li><a href="#programs" class="nav-cta">Get Started</a></li>
   </ul>
 </nav>
 
@@ -671,7 +668,7 @@
     <h1 class="hero-title">Built<br>For <span>More</span></h1>
     <p class="hero-sub">Lose weight. Build real strength. Stay in shape year-round. No gimmicks. No quick fixes. Just structured training, consistency, and accountability.</p>
     <div class="hero-actions">
-      <a href="#intake" class="btn-primary">Start Your Intake</a>
+      <a href="#programs" class="btn-primary">View Programs</a>
       <a href="#gallery" class="btn-ghost">See the Gallery</a>
     </div>
   </div>
@@ -872,39 +869,54 @@
       <div class="program-price"><span class="amount">$149</span><span class="period">One-Time</span></div>
       <a href="#" class="program-buy" data-plan="phenom-regime-8wk">Buy This Program</a>
     </div>
+
+    <div class="program-card reveal">
+      <div class="program-num">04</div>
+      <div class="program-tag">1:1 Coaching</div>
+      <h3 class="program-name">Custom Coaching<br>(1:1)</h3>
+      <p class="program-desc">Direct, ongoing coaching built around you — a custom program, real accountability, and direct access to your coach for as long as you're enrolled.</p>
+      <div class="program-features">
+        <div class="program-feature">Custom program built for your goals</div>
+        <div class="program-feature">Direct messaging with your coach</div>
+        <div class="program-feature">Ongoing check-in feedback</div>
+        <div class="program-feature">Program adjustments as you progress</div>
+        <div class="program-feature">Immediate digital access</div>
+      </div>
+      <div class="program-price"><span class="amount">$249</span><span class="period">One-Time</span></div>
+      <a href="#" class="program-buy" data-plan="coaching-1on1">Buy This Program</a>
+    </div>
   </div>
 
   <div class="programs-footnote reveal">
     <div>
-      <h3>Need More Support?</h3>
-      <p>Want accountability, feedback, and ongoing 1:1 coaching instead of a standalone plan? Apply below.</p>
+      <h3>Want To Talk It Through First?</h3>
+      <p>Not ready to commit yet? Send us a few details about your goals and we'll follow up before you buy anything.</p>
     </div>
-    <a href="#intake" class="btn-ghost">Apply For Coaching</a>
+    <a href="#apply" class="btn-ghost">Apply For Coaching</a>
   </div>
 </section>
 
-<!-- INTAKE -->
-<section class="intake-section" id="intake">
+<!-- APPLY FOR COACHING (INQUIRY) -->
+<section class="intake-section" id="apply">
   <div class="section-label reveal">Apply for Coaching</div>
-  <h2 class="section-title reveal">Apply for<br>Coaching.</h2>
+  <h2 class="section-title reveal">Tell Us About<br>Your Goals.</h2>
   <div class="intake-grid">
     <div class="intake-info reveal">
-      <p>Fill this out completely. The more honest your answers, the better the coaching fit. This intake is built to screen for commitment, training readiness, and what kind of support you actually need.</p>
-
+      <p>Fill this out completely. The more honest your answers, the better the coaching fit. This isn't a purchase — it's a quick way to reach a coach directly and figure out if 1:1 coaching is the right move before you buy anything.</p>
     </div>
     <div class="reveal">
-      <form class="form-grid" id="coaching-form" action="https://formspree.io/f/xlgaazba" method="POST">
+      <form class="form-grid" id="coaching-form">
         <div class="form-field">
           <label>Full Name</label>
-          <input type="text" name="full_name" placeholder="Your full name">
+          <input type="text" name="full_name" id="apply-full-name" placeholder="Your full name" required>
         </div>
         <div class="form-field">
           <label>Best Email</label>
-          <input type="email" name="email" placeholder="your@email.com">
+          <input type="email" name="email" id="apply-email" placeholder="your@email.com" required>
         </div>
         <div class="form-field full">
           <label>Main Goal Right Now</label>
-          <select name="main_goal">
+          <select name="main_goal" id="apply-main-goal">
             <option value="" disabled selected>Select your primary goal</option>
             <option>Lose weight &amp; reduce body fat</option>
             <option>Gain strength &amp; muscle</option>
@@ -915,15 +927,15 @@
         </div>
         <div class="form-field full">
           <label>Why is this goal important to you right now?</label>
-          <textarea name="goal_importance" placeholder="What's driving this for you? Be specific."></textarea>
+          <textarea name="goal_importance" id="apply-goal-importance" placeholder="What's driving this for you? Be specific."></textarea>
         </div>
         <div class="form-field full">
           <label>What have you already tried?</label>
-          <textarea name="already_tried" placeholder="Programs, diets, trainers, phases you couldn't stick to..."></textarea>
+          <textarea name="already_tried" id="apply-already-tried" placeholder="Programs, diets, trainers, phases you couldn't stick to..."></textarea>
         </div>
         <div class="form-field full">
           <label>Biggest thing holding you back?</label>
-          <select name="biggest_obstacle">
+          <select name="biggest_obstacle" id="apply-biggest-obstacle">
             <option value="" disabled selected>Select the biggest obstacle</option>
             <option>Consistency &amp; discipline</option>
             <option>Time &amp; schedule</option>
@@ -936,7 +948,7 @@
         </div>
         <div class="form-field">
           <label>Days Per Week (Realistic)</label>
-          <select name="days_per_week">
+          <select name="days_per_week" id="apply-days-per-week">
             <option value="" disabled selected>Select days</option>
             <option>2 days</option>
             <option>3 days</option>
@@ -947,7 +959,7 @@
         </div>
         <div class="form-field">
           <label>Training Location</label>
-          <select name="training_location">
+          <select name="training_location" id="apply-training-location">
             <option value="" disabled selected>Where will you train?</option>
             <option>Commercial gym</option>
             <option>Home gym</option>
@@ -958,11 +970,11 @@
         </div>
         <div class="form-field full">
           <label>Injuries, Pain, or Physical Limitations</label>
-          <textarea name="injuries" placeholder="Be honest. Programming needs to match the body you have right now."></textarea>
+          <textarea name="injuries" id="apply-injuries" placeholder="Be honest. Programming needs to match the body you have right now."></textarea>
         </div>
         <div class="form-field full">
           <label>Coaching Support You're Looking For</label>
-          <select name="coaching_support">
+          <select name="coaching_support" id="apply-coaching-support">
             <option value="" disabled selected>Select support type</option>
             <option>Program only</option>
             <option>Program + accountability check-ins</option>
@@ -974,7 +986,7 @@
         </div>
         <div class="form-field full">
           <label>Ready to invest time, effort, and money into the process?</label>
-          <select name="ready_to_invest">
+          <select name="ready_to_invest" id="apply-ready-to-invest">
             <option value="" disabled selected>Select your answer</option>
             <option>Yes — I'm committed and ready to start</option>
             <option>Yes — but I need to understand costs first</option>
@@ -982,13 +994,14 @@
           </select>
         </div>
         <div class="form-submit">
-          <button type="submit">Submit Application</button>
+          <button type="submit" id="apply-submit-btn">Submit Application</button>
         </div>
-        <p class="form-note">Applications are reviewed within 48 hours. Only serious applicants will be contacted.</p>
+        <p class="form-note" id="apply-form-note">Applications are typically reviewed within 48 hours. Only serious applicants will be contacted.</p>
       </form>
     </div>
   </div>
 </section>
+
 
 <!-- FOOTER -->
 <footer>
@@ -1023,7 +1036,7 @@
   //  - Not logged in     → send straight to Stripe too — Stripe collects their email
   //    at checkout. Accounts are only created AFTER a purchase (see auth.html), so
   //    there's no account to log into yet at this point.
-  //  - Stripe not configured yet → fall back to the coaching/intake form
+  //  - Stripe not configured yet → show a friendly message instead of a dead link
   document.querySelectorAll('.program-buy').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       e.preventDefault();
@@ -1031,7 +1044,7 @@
       const link = (typeof STRIPE_PAYMENT_LINKS !== 'undefined') ? STRIPE_PAYMENT_LINKS[plan] : '';
 
       if (!link) {
-        document.querySelector('#intake').scrollIntoView({ behavior: 'smooth' });
+        alert('This program isn\'t available for purchase yet — check back soon.');
         return;
       }
 
@@ -1057,6 +1070,58 @@
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (session) link.textContent = 'My Account';
   })();
+
+  // "Apply for Coaching" — sends straight into the admin inbox (Supabase)
+  // instead of a third-party form service. No account needed to submit;
+  // only admins can ever read these back (see supabase-schema.sql RLS).
+  const coachingForm = document.getElementById('coaching-form');
+  if (coachingForm) {
+    coachingForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const noteEl = document.getElementById('apply-form-note');
+      const submitBtn = document.getElementById('apply-submit-btn');
+
+      if (typeof supabaseClient === 'undefined' || !supabaseClient) {
+        noteEl.textContent = 'This form isn\'t connected yet — please check back soon.';
+        noteEl.style.color = '#ff6b6b';
+        return;
+      }
+
+      const fullName = document.getElementById('apply-full-name').value.trim();
+      const email = document.getElementById('apply-email').value.trim();
+      if (!fullName || !email) return; // native "required" already covers this in normal use
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Submitting...';
+
+      const { error } = await supabaseClient.from('inquiries').insert({
+        full_name: fullName,
+        email: email,
+        main_goal: document.getElementById('apply-main-goal').value || null,
+        goal_importance: document.getElementById('apply-goal-importance').value.trim() || null,
+        already_tried: document.getElementById('apply-already-tried').value.trim() || null,
+        biggest_obstacle: document.getElementById('apply-biggest-obstacle').value || null,
+        days_per_week: document.getElementById('apply-days-per-week').value || null,
+        training_location: document.getElementById('apply-training-location').value || null,
+        injuries: document.getElementById('apply-injuries').value.trim() || null,
+        coaching_support: document.getElementById('apply-coaching-support').value || null,
+        ready_to_invest: document.getElementById('apply-ready-to-invest').value || null
+      });
+
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Submit Application';
+
+      if (error) {
+        noteEl.textContent = 'Something went wrong submitting your application — please try again.';
+        noteEl.style.color = '#ff6b6b';
+        return;
+      }
+
+      coachingForm.reset();
+      noteEl.textContent = "Thanks — your application's been sent. We typically follow up within 48 hours.";
+      noteEl.style.color = '#6bcf7f';
+    });
+  }
 </script>
 </body>
 </html>

@@ -355,6 +355,23 @@
     weeksEl.innerHTML = '';
     if (!week) return;
 
+    const days = week.days || [];
+
+    // A coached (non-scheduled) program — like 1:1 Coaching — has a week
+    // entry with no days at all. Skip the "Week X" framing and the day
+    // tabs entirely; just show the message as its own card.
+    if (days.length === 0 && week.focus) {
+      const card = document.createElement('div');
+      card.className = 'day-card';
+      const p = document.createElement('p');
+      p.style.cssText = 'color: var(--light-grey); font-size: 0.95rem; line-height: 1.7;';
+      p.textContent = week.focus;
+      card.appendChild(p);
+      weeksEl.appendChild(card);
+      renderWeekNav(allWeeks.length);
+      return;
+    }
+
     const block = document.createElement('div');
     block.className = 'week-block';
     const heading = document.createElement('div');
@@ -368,8 +385,6 @@
       focusEl.textContent = week.focus;
       block.appendChild(focusEl);
     }
-
-    const days = week.days || [];
 
     // First time showing a program (or right after switching to one):
     // default to today's weekday if it's part of this week, otherwise "All
