@@ -311,6 +311,7 @@ create or replace function public.admin_list_clients()
 returns table (
   user_id uuid,
   email text,
+  full_name text,
   program_id text,
   program_name text,
   purchase_status text,
@@ -331,6 +332,7 @@ begin
     select
       u.id as user_id,
       u.email::text,
+      (u.raw_user_meta_data ->> 'full_name')::text as full_name,
       p.program_id,
       pr.name as program_name,
       p.status as purchase_status,
@@ -341,7 +343,7 @@ begin
     join auth.users u on u.id = p.user_id
     join programs pr on pr.id = p.program_id
     left join workout_logs wl on wl.user_id = p.user_id
-    group by u.id, u.email, p.program_id, pr.name, p.status, p.created_at
+    group by u.id, u.email, u.raw_user_meta_data, p.program_id, pr.name, p.status, p.created_at
     order by p.created_at desc;
 end;
 $$;
