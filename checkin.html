@@ -316,11 +316,22 @@
     (purchaseRows || []).forEach(p => { purchaseDateById[p.program_id] = p.created_at; });
 
     const programIds = allPurchases.map(p => p.program_id);
-    const { data: contentRows } = await supabaseClient
+
+    // A client can have both a shared plan and their own custom-built one —
+    // the custom one wins where both exist, same rule as My Program.
+    const { data: sharedRows } = await supabaseClient
       .from('program_content')
       .select('program_id, content')
-      .in('program_id', programIds);
-    (contentRows || []).forEach(row => { programContentById[row.program_id] = row.content; });
+      .in('program_id', programIds)
+      .is('user_id', null);
+    (sharedRows || []).forEach(row => { programContentById[row.program_id] = row.content; });
+
+    const { data: customRows } = await supabaseClient
+      .from('program_content')
+      .select('program_id, content')
+      .in('program_id', programIds)
+      .eq('user_id', currentUser.id);
+    (customRows || []).forEach(row => { programContentById[row.program_id] = row.content; });
   }
 
   // Figures out which day of the program a given calendar date corresponds

@@ -21,6 +21,7 @@ drop function if exists public.admin_list_conversations();
 drop table if exists waiver_acceptances cascade;
 drop table if exists messages cascade;
 drop table if exists inquiries cascade;
+drop table if exists exercise_catalog cascade;
 drop table if exists workout_logs cascade;
 drop table if exists program_content cascade;
 drop table if exists purchases cascade;
@@ -46,11 +47,27 @@ create table programs (
 -- to hide. A row here is only ever returned to a user who has a matching
 -- active row in `purchases` (enforced by the RLS policy below) — logging in
 -- alone is not enough, and neither is knowing the public API key.
+--
+-- user_id is null for the standard, shared version of a program (what most
+-- clients on kickstart-4wk / built-for-more-6wk / phenom-regime-8wk see).
+-- When it's set, that row is a CUSTOM plan for that one client only — built
+-- for 1:1 Coaching, where every client needs their own program, but usable
+-- for any program if you want to hand-customize one client's plan. A client
+-- with both a shared row and their own custom row sees the custom one; the
+-- two partial unique indexes below are what make "at most one shared row"
+-- and "at most one custom row per client" both true at the same time.
 create table program_content (
-  program_id text primary key references programs(id) on delete cascade,
+  id uuid primary key default gen_random_uuid(),
+  program_id text not null references programs(id) on delete cascade,
+  user_id uuid references auth.users(id) on delete cascade,
   content jsonb not null default '[]',
   updated_at timestamptz default now()
 );
+
+create unique index if not exists program_content_shared_idx
+  on program_content (program_id) where user_id is null;
+create unique index if not exists program_content_custom_idx
+  on program_content (program_id, user_id) where user_id is not null;
 
 -- PURCHASES
 -- One row per program a client has bought, tied to a real account.
@@ -170,14 +187,38 @@ create policy "Programs are publicly readable"
 create policy "Content is only readable with an active purchase"
   on program_content for select
   using (
-    exists (
-      select 1 from purchases
-      where purchases.user_id = auth.uid()
-        and purchases.program_id = program_content.program_id
-        and purchases.status = 'active'
+    (
+      -- A client can see either the shared version of a program they
+      -- own, or their own custom-built version if one exists — never
+      -- someone else's custom row.
+      (program_content.user_id is null or program_content.user_id = auth.uid())
+      and exists (
+        select 1 from purchases
+        where purchases.user_id = auth.uid()
+          and purchases.program_id = program_content.program_id
+          and purchases.status = 'active'
+      )
     )
     or is_admin()
   );
+
+-- Only admins build/edit program content — whether that's the shared
+-- version of a program or a custom plan for one specific client.
+drop policy if exists "Admins can create program content" on program_content;
+create policy "Admins can create program content"
+  on program_content for insert
+  with check (is_admin());
+
+drop policy if exists "Admins can update program content" on program_content;
+create policy "Admins can update program content"
+  on program_content for update
+  using (is_admin())
+  with check (is_admin());
+
+drop policy if exists "Admins can delete program content" on program_content;
+create policy "Admins can delete program content"
+  on program_content for delete
+  using (is_admin());
 
 -- Users can see their own purchases; admins can see everyone's (needed for the admin view).
 create policy "Users can view their own purchases, admins can view all"
@@ -273,7 +314,24 @@ as $$
 declare
   matched record;
   match_count int;
+  is_new_admin boolean;
 begin
+  -- Admins skip the purchase requirement entirely and get every program
+  -- automatically the moment their account exists — no manual purchase
+  -- rows to add by hand, no re-adding them after a schema reset.
+  select exists(
+    select 1 from admins where lower(email) = lower(new.email)
+  ) into is_new_admin;
+
+  if is_new_admin then
+    insert into purchases (user_id, program_id, status)
+    select new.id, id, 'active' from programs
+    on conflict (user_id, program_id) do nothing;
+
+    delete from pending_access where lower(email) = lower(new.email);
+    return new;
+  end if;
+
   select count(*) into match_count
   from pending_access
   where lower(email) = lower(new.email);
@@ -297,6 +355,37 @@ begin
   return new;
 end;
 $$;
+
+-- Covers the OTHER direction: someone who already has an account (maybe
+-- even an existing client) gets added to `admins` afterward. The moment
+-- that row is inserted, they're granted every program automatically too —
+-- being an admin always means full access, regardless of which order
+-- "become an admin" and "create an account" happened in.
+create or replace function public.handle_new_admin_grant_all_programs()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  matched_user_id uuid;
+begin
+  select id into matched_user_id from auth.users where lower(email) = lower(new.email) limit 1;
+
+  if matched_user_id is not null then
+    insert into purchases (user_id, program_id, status)
+    select matched_user_id, id, 'active' from programs
+    on conflict (user_id, program_id) do nothing;
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists grant_programs_on_new_admin on admins;
+create trigger grant_programs_on_new_admin
+  after insert on admins
+  for each row execute function public.handle_new_admin_grant_all_programs();
 
 -- Fires right after a new row lands in auth.users. (Not "before insert" —
 -- that seems like it should work for granting access, but it doesn't: at
@@ -528,6 +617,124 @@ create policy "Only admins can update inquiries"
   on inquiries for update
   using (is_admin())
   with check (is_admin());
+
+-- ─────────────────────────────────────────────────────────────
+-- EXERCISE CATALOG — the library an admin picks from when building a
+-- program (shared or custom) in the program builder. Admin-only to read,
+-- since it's an authoring tool, not something clients need directly.
+-- ─────────────────────────────────────────────────────────────
+
+create table if not exists exercise_catalog (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  category text not null, -- 'Back & Biceps' | 'Chest & Triceps' | 'Legs' | 'Core' | 'Cardio'
+  created_at timestamptz default now()
+);
+
+alter table exercise_catalog enable row level security;
+
+drop policy if exists "Only admins can view the exercise catalog" on exercise_catalog;
+create policy "Only admins can view the exercise catalog"
+  on exercise_catalog for select
+  using (is_admin());
+
+drop policy if exists "Only admins can add to the exercise catalog" on exercise_catalog;
+create policy "Only admins can add to the exercise catalog"
+  on exercise_catalog for insert
+  with check (is_admin());
+
+drop policy if exists "Only admins can remove from the exercise catalog" on exercise_catalog;
+create policy "Only admins can remove from the exercise catalog"
+  on exercise_catalog for delete
+  using (is_admin());
+
+insert into exercise_catalog (name, category) values
+-- Back & Biceps
+('Barbell Deadlift', 'Back & Biceps'),
+('Pull-Up', 'Back & Biceps'),
+('Chin-Up', 'Back & Biceps'),
+('Lat Pulldown', 'Back & Biceps'),
+('Barbell Row', 'Back & Biceps'),
+('One-Arm Dumbbell Row', 'Back & Biceps'),
+('T-Bar Row', 'Back & Biceps'),
+('Seated Cable Row', 'Back & Biceps'),
+('Chest-Supported Row', 'Back & Biceps'),
+('Face Pull', 'Back & Biceps'),
+('Straight-Arm Pulldown', 'Back & Biceps'),
+('Barbell Curl', 'Back & Biceps'),
+('Dumbbell Curl', 'Back & Biceps'),
+('Hammer Curl', 'Back & Biceps'),
+('Incline Dumbbell Curl', 'Back & Biceps'),
+('Preacher Curl', 'Back & Biceps'),
+('Cable Curl', 'Back & Biceps'),
+('Rear Delt Fly', 'Back & Biceps'),
+-- Chest & Triceps
+('Barbell Bench Press', 'Chest & Triceps'),
+('Incline Barbell Bench Press', 'Chest & Triceps'),
+('Decline Bench Press', 'Chest & Triceps'),
+('Dumbbell Bench Press', 'Chest & Triceps'),
+('Incline Dumbbell Press', 'Chest & Triceps'),
+('Dumbbell Fly', 'Chest & Triceps'),
+('Cable Fly', 'Chest & Triceps'),
+('Machine Chest Press', 'Chest & Triceps'),
+('Push-Up', 'Chest & Triceps'),
+('Chest Dip', 'Chest & Triceps'),
+('Close-Grip Bench Press', 'Chest & Triceps'),
+('Tricep Dip', 'Chest & Triceps'),
+('Overhead Tricep Extension', 'Chest & Triceps'),
+('Rope Tricep Pushdown', 'Chest & Triceps'),
+('Skull Crusher', 'Chest & Triceps'),
+('Tricep Kickback', 'Chest & Triceps'),
+('Diamond Push-Up', 'Chest & Triceps'),
+('Cable Overhead Tricep Extension', 'Chest & Triceps'),
+-- Legs
+('Barbell Back Squat', 'Legs'),
+('Front Squat', 'Legs'),
+('Goblet Squat', 'Legs'),
+('Romanian Deadlift', 'Legs'),
+('Sumo Deadlift', 'Legs'),
+('Leg Press', 'Legs'),
+('Walking Lunge', 'Legs'),
+('Reverse Lunge', 'Legs'),
+('Bulgarian Split Squat', 'Legs'),
+('Leg Extension', 'Legs'),
+('Lying Leg Curl', 'Legs'),
+('Seated Leg Curl', 'Legs'),
+('Barbell Hip Thrust', 'Legs'),
+('Glute Bridge', 'Legs'),
+('Standing Calf Raise', 'Legs'),
+('Seated Calf Raise', 'Legs'),
+('Step-Up', 'Legs'),
+('Hack Squat', 'Legs'),
+-- Core
+('Plank', 'Core'),
+('Side Plank', 'Core'),
+('Hanging Leg Raise', 'Core'),
+('Cable Crunch', 'Core'),
+('Bicycle Crunch', 'Core'),
+('Russian Twist', 'Core'),
+('Ab Wheel Rollout', 'Core'),
+('Dead Bug', 'Core'),
+('Pallof Press', 'Core'),
+('Mountain Climbers', 'Core'),
+('V-Up', 'Core'),
+('Sit-Up', 'Core'),
+('Flutter Kicks', 'Core'),
+('Standing Cable Woodchopper', 'Core'),
+-- Cardio
+('Running', 'Cardio'),
+('Cycling', 'Cardio'),
+('Rowing', 'Cardio'),
+('Elliptical', 'Cardio'),
+('Stair Climber', 'Cardio'),
+('Jump Rope', 'Cardio'),
+('Swimming', 'Cardio'),
+('Assault Bike', 'Cardio'),
+('Sled Push', 'Cardio'),
+('Battle Ropes', 'Cardio'),
+('Incline Treadmill Walk', 'Cardio'),
+('Kettlebell Swings', 'Cardio')
+on conflict do nothing;
 
 -- ─────────────────────────────────────────────────────────────
 -- SEED DATA — public program info
@@ -829,4 +1036,4 @@ insert into program_content (program_id, content) values
   }
 ]$json$::jsonb
 )
-on conflict (program_id) do update set content = excluded.content, updated_at = now();
+on conflict (program_id) where user_id is null do update set content = excluded.content, updated_at = now();

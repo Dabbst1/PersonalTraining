@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Program Builder — Admin — Built For More</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="site.css">
+<style>
+  main { max-width: 1000px; }
+
+  .builder-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    padding: 24px;
+    margin-top: 24px;
+  }
+  .builder-controls .form-field { grid-column: span 1; }
+  .builder-controls select {
+    background: var(--black); border: 1px solid var(--border); color: var(--white);
+    padding: 10px 12px; font-family: 'Barlow', sans-serif; font-size: 0.9rem; width: 100%;
+  }
+  .builder-hint { font-size: 0.82rem; color: var(--grey); margin-top: 10px; grid-column: span 2; }
+
+  .week-editor {
+    background: var(--card); border: 1px solid var(--border); padding: 20px 24px; margin-top: 20px;
+  }
+  .week-editor-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .week-editor-header h3 {
+    font-family: 'Barlow Condensed', sans-serif; font-size: 1.1rem; font-weight: 700; color: var(--white);
+  }
+  .week-focus-input {
+    width: 100%; background: var(--black); border: 1px solid var(--border); color: var(--white);
+    padding: 10px 12px; font-family: 'Barlow', sans-serif; font-size: 0.85rem; margin-bottom: 16px; resize: vertical; min-height: 44px;
+  }
+
+  .day-editor { background: var(--black); border: 1px solid var(--border); padding: 16px 18px; margin-bottom: 12px; }
+  .day-editor-header { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
+  .day-editor-header input { background: var(--card); border: 1px solid var(--border); color: var(--white); padding: 8px 10px; font-family: 'Barlow', sans-serif; font-size: 0.85rem; }
+  .day-editor-header input.day-name { width: 130px; }
+  .day-editor-header input.day-title { flex: 1; }
+
+  .exercise-row {
+    display: grid;
+    grid-template-columns: 2.2fr 0.7fr 0.9fr 0.9fr auto;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .exercise-row input, .exercise-row select {
+    background: var(--card); border: 1px solid var(--border); color: var(--white);
+    padding: 8px 10px; font-size: 0.83rem; font-family: 'Barlow', sans-serif; width: 100%;
+  }
+  .exercise-row button {
+    background: none; border: none; color: var(--grey); cursor: pointer; font-size: 1.1rem;
+  }
+  .exercise-row button:hover { color: #ff6b6b; }
+
+  .small-btn {
+    background: none; border: 1px dashed var(--border); color: var(--grey);
+    font-family: 'Barlow Condensed', sans-serif; font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 8px 12px; cursor: pointer; margin-top: 4px;
+  }
+  .small-btn:hover { border-color: var(--grey); color: var(--white); }
+  .remove-day-btn { background: none; border: none; color: var(--grey); cursor: pointer; font-size: 0.95rem; margin-left: auto; }
+  .remove-day-btn:hover { color: #ff6b6b; }
+
+  .builder-actions { display: flex; gap: 12px; margin-top: 24px; align-items: center; }
+  .builder-save-msg { font-size: 0.88rem; }
+
+  .category-heading {
+    font-family: 'Barlow Condensed', sans-serif; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--grey);
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="nav-logo">Built For More</a>
+  <ul class="nav-links">
+    <li><a href="dashboard.html">My Program</a></li>
+    <li><a href="admin.html">Clients</a></li>
+    <li><a href="admin-messages.html">Messages</a></li>
+    <li><a href="admin-program-builder.html">Program Builder</a></li>
+    <li><a href="#" id="logout-link">Log Out</a></li>
+  </ul>
+</nav>
+
+<main>
+  <div class="state-message" id="loading-state">
+    <p>Loading...</p>
+  </div>
+
+  <div class="state-message" id="denied-state" style="display:none;">
+    <div class="section-label" style="justify-content:center;">Access Denied</div>
+    <h2 class="section-title">Admins Only.</h2>
+  </div>
+
+  <div id="builder-content" style="display:none;">
+    <div class="section-label">Admin</div>
+    <h1 class="section-title">Program Builder.</h1>
+
+    <div class="builder-controls">
+      <div class="form-field">
+        <label>Program</label>
+        <select id="program-select"></select>
+      </div>
+      <div class="form-field">
+        <label>Build For</label>
+        <select id="client-select">
+          <option value="">Everyone on this program (shared plan)</option>
+        </select>
+      </div>
+      <p class="builder-hint" id="builder-hint">Leave "Build For" set to "Everyone" to edit the standard plan every client on this program sees. Pick a specific client to build (or override) a custom plan just for them — useful for 1:1 Coaching, or to tweak one client's plan without affecting anyone else.</p>
+    </div>
+
+    <div id="weeks-container"></div>
+
+    <button class="small-btn" id="add-week-btn" style="margin-top: 16px;">+ Add Week</button>
+
+    <div class="builder-actions">
+      <button class="btn-primary" id="save-builder-btn">Save Program</button>
+      <span class="builder-save-msg" id="builder-save-msg"></span>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="footer-logo">Built For More</div>
+  <p>&copy; 2026. All rights reserved.</p>
+</footer>
+
+<datalist id="catalog-suggestions"></datalist>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script>
+  let currentUser = null;
+  let allPrograms = [];
+  let allClients = [];
+  let weeksData = []; // the actual content being edited: [{ week, focus, days: [{ day, title, warmup, exercises: [string], finisher }] }]
+
+  async function init() {
+    if (!supabaseClient) {
+      document.getElementById('loading-state').innerHTML = '<p>Account system is not connected yet.</p>';
+      return;
+    }
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session) {
+      window.location.href = 'auth.html';
+      return;
+    }
+    currentUser = session.user;
+
+    const { data: isAdmin } = await supabaseClient.rpc('is_admin');
+    if (!isAdmin) {
+      document.getElementById('loading-state').style.display = 'none';
+      document.getElementById('denied-state').style.display = 'block';
+      return;
+    }
+
+    await loadCatalog();
+    await loadPrograms();
+    await loadClients();
+
+    document.getElementById('loading-state').style.display = 'none';
+    document.getElementById('builder-content').style.display = 'block';
+
+    await loadContentForSelection();
+  }
+
+  async function loadCatalog() {
+    const { data } = await supabaseClient.from('exercise_catalog').select('name, category').order('category').order('name');
+    const suggestionsEl = document.getElementById('catalog-suggestions');
+    suggestionsEl.innerHTML = (data || []).map(e => `<option value="${e.name}">${e.category}</option>`).join('');
+  }
+
+  async function loadPrograms() {
+    const { data } = await supabaseClient.from('programs').select('id, name').order('name');
+    allPrograms = data || [];
+    const select = document.getElementById('program-select');
+    select.innerHTML = allPrograms.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+    select.addEventListener('change', loadContentForSelection);
+  }
+
+  async function loadClients() {
+    const { data } = await supabaseClient.rpc('admin_list_clients');
+    // De-duplicate — a client can appear once per program they own.
+    const seen = new Set();
+    allClients = (data || []).filter(c => {
+      if (seen.has(c.user_id)) return false;
+      seen.add(c.user_id);
+      return true;
+    });
+    const select = document.getElementById('client-select');
+    allClients.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.user_id;
+      opt.textContent = c.full_name || c.email;
+      select.appendChild(opt);
+    });
+    select.addEventListener('change', loadContentForSelection);
+  }
+
+  async function loadContentForSelection() {
+    const programId = document.getElementById('program-select').value;
+    const clientId = document.getElementById('client-select').value || null;
+    document.getElementById('builder-save-msg').textContent = '';
+
+    let query = supabaseClient.from('program_content').select('content').eq('program_id', programId);
+    query = clientId ? query.eq('user_id', clientId) : query.is('user_id', null);
+
+    const { data } = await query.maybeSingle();
+    weeksData = (data && data.content) ? JSON.parse(JSON.stringify(data.content)) : [];
+    renderWeeks();
+  }
+
+  function renderWeeks() {
+    const container = document.getElementById('weeks-container');
+    container.innerHTML = '';
+    weeksData.forEach((week, weekIndex) => {
+      container.appendChild(buildWeekEditor(week, weekIndex));
+    });
+  }
+
+  function buildWeekEditor(week, weekIndex) {
+    const el = document.createElement('div');
+    el.className = 'week-editor';
+
+    const header = document.createElement('div');
+    header.className = 'week-editor-header';
+    header.innerHTML = `<h3>Week ${week.week}</h3>`;
+    const removeWeekBtn = document.createElement('button');
+    removeWeekBtn.className = 'remove-day-btn';
+    removeWeekBtn.textContent = 'Remove Week';
+    removeWeekBtn.addEventListener('click', () => {
+      weeksData.splice(weekIndex, 1);
+      renumberWeeks();
+      renderWeeks();
+    });
+    header.appendChild(removeWeekBtn);
+    el.appendChild(header);
+
+    const focusInput = document.createElement('textarea');
+    focusInput.className = 'week-focus-input';
+    focusInput.placeholder = 'Optional: a note about this week (progression focus, deload, etc.)';
+    focusInput.value = week.focus || '';
+    focusInput.addEventListener('input', () => { week.focus = focusInput.value; });
+    el.appendChild(focusInput);
+
+    const daysContainer = document.createElement('div');
+    (week.days || []).forEach((day, dayIndex) => {
+      daysContainer.appendChild(buildDayEditor(week, day, dayIndex));
+    });
+    el.appendChild(daysContainer);
+
+    const addDayBtn = document.createElement('button');
+    addDayBtn.className = 'small-btn';
+    addDayBtn.textContent = '+ Add Day';
+    addDayBtn.addEventListener('click', () => {
+      week.days = week.days || [];
+      week.days.push({ day: '', title: '', exercises: [] });
+      renderWeeks();
+    });
+    el.appendChild(addDayBtn);
+
+    return el;
+  }
+
+  function buildDayEditor(week, day, dayIndex) {
+    const el = document.createElement('div');
+    el.className = 'day-editor';
+
+    const header = document.createElement('div');
+    header.className = 'day-editor-header';
+
+    const dayNameInput = document.createElement('input');
+    dayNameInput.className = 'day-name';
+    dayNameInput.placeholder = 'Monday';
+    dayNameInput.value = day.day || '';
+    dayNameInput.addEventListener('input', () => { day.day = dayNameInput.value; });
+
+    const dayTitleInput = document.createElement('input');
+    dayTitleInput.className = 'day-title';
+    dayTitleInput.placeholder = 'Day focus, e.g. Lower Body Strength';
+    dayTitleInput.value = day.title || '';
+    dayTitleInput.addEventListener('input', () => { day.title = dayTitleInput.value; });
+
+    const removeDayBtn = document.createElement('button');
+    removeDayBtn.className = 'remove-day-btn';
+    removeDayBtn.textContent = '✕ Remove Day';
+    removeDayBtn.addEventListener('click', () => {
+      week.days.splice(dayIndex, 1);
+      renderWeeks();
+    });
+
+    header.appendChild(dayNameInput);
+    header.appendChild(dayTitleInput);
+    header.appendChild(removeDayBtn);
+    el.appendChild(header);
+
+    const exercisesContainer = document.createElement('div');
+    (day.exercises || []).forEach((ex, exIndex) => {
+      exercisesContainer.appendChild(buildExerciseRow(day, ex, exIndex));
+    });
+    el.appendChild(exercisesContainer);
+
+    const addExerciseBtn = document.createElement('button');
+    addExerciseBtn.className = 'small-btn';
+    addExerciseBtn.textContent = '+ Add Exercise';
+    addExerciseBtn.addEventListener('click', () => {
+      day.exercises = day.exercises || [];
+      day.exercises.push('');
+      renderWeeks();
+    });
+    el.appendChild(addExerciseBtn);
+
+    return el;
+  }
+
+  // Exercises are stored as plain strings ("Goblet Squat — 3x8-10, rest 90s")
+  // to match every other program already on the site. This row edits the
+  // pieces separately, then reassembles them into that same string format.
+  function buildExerciseRow(day, exerciseString, exIndex) {
+    const parsed = parseExerciseString(exerciseString);
+
+    const row = document.createElement('div');
+    row.className = 'exercise-row';
+
+    const nameInput = document.createElement('input');
+    nameInput.placeholder = 'Exercise name';
+    nameInput.setAttribute('list', 'catalog-suggestions');
+    nameInput.value = parsed.name;
+
+    const setsInput = document.createElement('input');
+    setsInput.placeholder = 'Sets';
+    setsInput.value = parsed.sets;
+
+    const repsInput = document.createElement('input');
+    repsInput.placeholder = 'Reps';
+    repsInput.value = parsed.reps;
+
+    const restInput = document.createElement('input');
+    restInput.placeholder = 'Notes (rest, tempo...)';
+    restInput.value = parsed.rest;
+
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.title = 'Remove exercise';
+    removeBtn.textContent = '\u2715';
+    removeBtn.addEventListener('click', () => {
+      day.exercises.splice(exIndex, 1);
+      renderWeeks();
+    });
+
+    function sync() {
+      day.exercises[exIndex] = buildExerciseString(nameInput.value, setsInput.value, repsInput.value, restInput.value);
+    }
+    [nameInput, setsInput, repsInput, restInput].forEach(input => input.addEventListener('input', sync));
+
+    row.appendChild(nameInput);
+    row.appendChild(setsInput);
+    row.appendChild(repsInput);
+    row.appendChild(restInput);
+    row.appendChild(removeBtn);
+    return row;
+  }
+
+  function parseExerciseString(str) {
+    // "Goblet Squat — 3x8-10, rest 90s" → { name, sets, reps, rest }
+    if (!str) return { name: '', sets: '', reps: '', rest: '' };
+    const [namePart, restPart] = str.split('—').map(s => (s || '').trim());
+    if (!restPart) return { name: namePart || str.trim(), sets: '', reps: '', rest: '' };
+    const match = restPart.match(/(\d+)\s*x\s*([\d-]+)/i);
+    const sets = match ? match[1] : '';
+    const reps = match ? match[2] : '';
+    let rest = restPart;
+    if (match) rest = restPart.replace(match[0], '').replace(/^,\s*/, '').trim();
+    return { name: namePart, sets, reps, rest };
+  }
+
+  function buildExerciseString(name, sets, reps, rest) {
+    if (!name) return '';
+    let str = name;
+    const setsReps = sets && reps ? `${sets}x${reps}` : (sets || reps || '');
+    const parts = [setsReps, rest].filter(Boolean);
+    if (parts.length) str += ' — ' + parts.join(', ');
+    return str;
+  }
+
+  function renumberWeeks() {
+    weeksData.forEach((w, i) => { w.week = i + 1; });
+  }
+
+  document.getElementById('add-week-btn').addEventListener('click', () => {
+    weeksData.push({ week: weeksData.length + 1, focus: '', days: [] });
+    renderWeeks();
+  });
+
+  document.getElementById('save-builder-btn').addEventListener('click', async () => {
+    const programId = document.getElementById('program-select').value;
+    const clientId = document.getElementById('client-select').value || null;
+    const msgEl = document.getElementById('builder-save-msg');
+    msgEl.style.color = 'var(--grey)';
+    msgEl.textContent = 'Saving...';
+
+    // Drop empty exercise strings and empty days before saving, so a
+    // half-filled row doesn't get saved as clutter.
+    const cleaned = weeksData.map(w => ({
+      ...w,
+      days: (w.days || [])
+        .map(d => ({ ...d, exercises: (d.exercises || []).filter(Boolean) }))
+        .filter(d => d.day || d.title || d.exercises.length)
+    }));
+
+    const row = { program_id: programId, user_id: clientId, content: cleaned, updated_at: new Date().toISOString() };
+    const conflictTarget = clientId ? 'program_id,user_id' : 'program_id';
+
+    // Upserting on a partial-unique-index target (the shared, user_id-is-null
+    // row) isn't directly supported by the JS client's upsert helper, so the
+    // shared case does an explicit check-then-insert-or-update instead.
+    let error;
+    if (clientId) {
+      ({ error } = await supabaseClient.from('program_content').upsert(row, { onConflict: conflictTarget }));
+    } else {
+      const { data: existing } = await supabaseClient.from('program_content').select('id').eq('program_id', programId).is('user_id', null).maybeSingle();
+      if (existing) {
+        ({ error } = await supabaseClient.from('program_content').update({ content: cleaned, updated_at: new Date().toISOString() }).eq('id', existing.id));
+      } else {
+        ({ error } = await supabaseClient.from('program_content').insert(row));
+      }
+    }
+
+    if (error) {
+      msgEl.style.color = '#ff6b6b';
+      msgEl.textContent = 'Could not save — please try again.';
+      return;
+    }
+    msgEl.style.color = '#6bcf7f';
+    msgEl.textContent = 'Saved.';
+  });
+
+  document.getElementById('logout-link').addEventListener('click', async (e) => {
+    e.preventDefault();
+    if (supabaseClient) await supabaseClient.auth.signOut();
+    window.location.href = 'index.html';
+  });
+
+  init();
+</script>
+</body>
+</html>

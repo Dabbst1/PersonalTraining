@@ -293,17 +293,33 @@
     updateSwitcherActiveState(purchase.program_id);
 
     // Fetch the actual workout plan — this table is behind Row Level Security:
-    // Supabase only returns a row here if this user has a matching active
+    // Supabase only returns rows here if this user has a matching active
     // purchase (checked server-side, not just by this page's logic). If
     // someone had no purchase and tried to query this directly, they'd get
     // nothing back regardless of what the front-end does.
-    const { data: contentRow, error: contentErr } = await supabaseClient
+    //
+    // A client can have both a shared (program-wide) plan AND their own
+    // custom-built one — if they do, the custom one takes priority. This is
+    // what makes 1:1 Coaching's individualized programs possible.
+    const { data: customRow } = await supabaseClient
       .from('program_content')
       .select('content')
       .eq('program_id', currentProgram.id)
-      .single();
+      .eq('user_id', currentUser.id)
+      .maybeSingle();
 
-    if (contentErr || !contentRow) {
+    let contentRow = customRow;
+    if (!contentRow) {
+      const { data: sharedRow } = await supabaseClient
+        .from('program_content')
+        .select('content')
+        .eq('program_id', currentProgram.id)
+        .is('user_id', null)
+        .maybeSingle();
+      contentRow = sharedRow;
+    }
+
+    if (!contentRow) {
       loadingState.innerHTML = '<p>Could not load your program content. Please refresh or contact support.</p>';
       return;
     }
