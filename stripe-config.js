@@ -13,6 +13,6 @@
 const STRIPE_PAYMENT_LINKS = {
   'kickstart-4wk':        'https://buy.stripe.com/28E00kgAneRY7XV48WdQQ00',
   'built-for-more-6wk':   'https://buy.stripe.com/8x228s5VJh063HF5d0dQQ01',
-  'phenom-regime-8wk':    'https://buy.stripe.com/4gM00kesf9xE3bBodQQ02',
-  'coaching-1on1':        '' // e.g. 'https://buy.stripe.com/xxxxxxxx' — this one must be a Payment Link on a RECURRING (monthly) price, not one-time. See SETUP.md Part 6.
+  'phenom-regime-8wk':    'https://buy.stripe.com/4gM00kesf9xE3HFbBodQQ02',
+  'coaching-1on1':        'https://buy.stripe.com/3cI5kEdob39ggurgVIdQQ03'
 };
