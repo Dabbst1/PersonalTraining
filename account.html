@@ -51,6 +51,38 @@
     </form>
   </div>
 
+  <div class="card" style="margin-top: 24px;">
+    <h3 style="font-family:'Barlow Condensed',sans-serif; font-size:0.9rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--grey); margin-bottom:16px;">Body Stats & Goals</h3>
+    <p style="font-size: 0.85rem; color: var(--grey); margin-bottom: 16px; line-height: 1.5;">Shared with your coach to help build your program. All optional.</p>
+    <form id="stats-form">
+      <div class="form-field">
+        <label>Age</label>
+        <input type="number" id="stats-age" min="0" max="120">
+      </div>
+      <div class="form-field">
+        <label>Height</label>
+        <div style="display:flex; gap:10px;">
+          <input type="number" id="stats-height-ft" min="0" max="8" placeholder="Feet">
+          <input type="number" id="stats-height-in" min="0" max="11" placeholder="Inches">
+        </div>
+      </div>
+      <div class="form-field">
+        <label>Current Weight (lbs)</label>
+        <input type="number" id="stats-weight" min="0" step="0.1">
+      </div>
+      <div class="form-field">
+        <label>Goal Weight (lbs)</label>
+        <input type="number" id="stats-goal-weight" min="0" step="0.1">
+      </div>
+      <div class="form-field">
+        <label>Goal Body Fat %</label>
+        <input type="number" id="stats-goal-bodyfat" min="0" max="100" step="0.1">
+      </div>
+      <button type="submit" class="btn-primary" id="stats-submit">Save Stats & Goals</button>
+      <div class="form-error" id="stats-message"></div>
+    </form>
+  </div>
+
   <div class="card" id="subscription-card" style="margin-top: 24px; display: none;">
     <h3 style="font-family:'Barlow Condensed',sans-serif; font-size:0.9rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--grey); margin-bottom:16px;">Coaching Subscription</h3>
     <div id="subscription-status" style="font-size: 0.9rem; color: var(--light-grey); line-height: 1.6; margin-bottom: 16px;"></div>
@@ -67,6 +99,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
 <script>
+  let currentUser = null;
+
   async function init() {
     if (!supabaseClient) return;
     const { data: { session } } = await supabaseClient.auth.getSession();
@@ -74,9 +108,64 @@
       window.location.href = 'auth.html';
       return;
     }
+    currentUser = session.user;
     document.getElementById('email-input').value = session.user.email || '';
     await loadSubscriptionStatus();
+    await loadStats();
   }
+
+  async function loadStats() {
+    const { data } = await supabaseClient
+      .from('client_settings')
+      .select('age, height_inches, current_weight_lbs, goal_weight_lbs, goal_body_fat_percentage')
+      .eq('user_id', currentUser.id)
+      .maybeSingle();
+    if (!data) return;
+    if (data.age) document.getElementById('stats-age').value = data.age;
+    if (data.height_inches) {
+      document.getElementById('stats-height-ft').value = Math.floor(data.height_inches / 12);
+      document.getElementById('stats-height-in').value = data.height_inches % 12;
+    }
+    if (data.current_weight_lbs) document.getElementById('stats-weight').value = data.current_weight_lbs;
+    if (data.goal_weight_lbs) document.getElementById('stats-goal-weight').value = data.goal_weight_lbs;
+    if (data.goal_body_fat_percentage) document.getElementById('stats-goal-bodyfat').value = data.goal_body_fat_percentage;
+  }
+
+  document.getElementById('stats-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const msgEl = document.getElementById('stats-message');
+    const btn = document.getElementById('stats-submit');
+    msgEl.className = 'form-error';
+    msgEl.textContent = '';
+    btn.disabled = true;
+
+    const age = document.getElementById('stats-age').value;
+    const heightFt = document.getElementById('stats-height-ft').value;
+    const heightIn = document.getElementById('stats-height-in').value;
+    const weight = document.getElementById('stats-weight').value;
+    const goalWeight = document.getElementById('stats-goal-weight').value;
+    const goalBodyFat = document.getElementById('stats-goal-bodyfat').value;
+
+    const row = {
+      user_id: currentUser.id,
+      age: age ? Number(age) : null,
+      height_inches: (heightFt || heightIn) ? (Number(heightFt) || 0) * 12 + (Number(heightIn) || 0) : null,
+      current_weight_lbs: weight ? Number(weight) : null,
+      goal_weight_lbs: goalWeight ? Number(goalWeight) : null,
+      goal_body_fat_percentage: goalBodyFat ? Number(goalBodyFat) : null,
+      updated_at: new Date().toISOString()
+    };
+
+    const { error } = await supabaseClient.from('client_settings').upsert(row, { onConflict: 'user_id' });
+    btn.disabled = false;
+
+    if (error) {
+      msgEl.textContent = 'Could not save — please try again.';
+      return;
+    }
+    msgEl.className = 'form-success';
+    msgEl.textContent = 'Saved.';
+  });
 
   async function loadSubscriptionStatus() {
     // Only ever shown for a recurring program — currently just Custom

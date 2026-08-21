@@ -161,13 +161,19 @@ create table food_logs (
 );
 
 -- CLIENT SETTINGS
--- Personal preferences a client sets for themselves — right now just an
--- optional daily calorie target for the nutrition log. This is THEIR number,
--- not something calculated or suggested by the app — keeps this a plain
--- self-tracking tool rather than anything that looks like nutrition advice.
+-- Personal preferences and intake info a client provides — some purely
+-- self-serve (the calorie goal, admin never sees it), some real coaching
+-- data an admin needs to actually build a program (age, height, weight,
+-- goals). Everything here is optional — nothing here blocks account
+-- creation or program access if left blank.
 create table client_settings (
   user_id uuid primary key references auth.users(id) on delete cascade,
   daily_calorie_goal integer,
+  age integer,
+  height_inches integer,          -- total inches, e.g. 5'10" = 70
+  current_weight_lbs numeric(6,1),
+  goal_weight_lbs numeric(6,1),
+  goal_body_fat_percentage numeric(4,1),
   updated_at timestamptz default now()
 );
 
@@ -306,9 +312,17 @@ create policy "Users can delete their own food logs"
 -- visibility needed here, this is a personal preference, not client data.
 alter table client_settings enable row level security;
 
-create policy "Users can view their own settings"
+-- A client can view/change their own settings. Admins can also VIEW (never
+-- edit) every client's settings — the calorie goal is meant to stay
+-- personal even from admins, but the intake fields (age, height, weight,
+-- goals) are real coaching data David needs to actually build programs.
+-- Keeping this as one combined policy rather than splitting the table is a
+-- deliberate tradeoff: simpler schema, at the cost of the calorie goal also
+-- being technically visible to admins even though it's not really "for"
+-- them — worth knowing if that ever needs to be split apart later.
+create policy "Users can view their own settings, admins can view all"
   on client_settings for select
-  using (auth.uid() = user_id);
+  using (auth.uid() = user_id or is_admin());
 
 create policy "Users can insert their own settings"
   on client_settings for insert

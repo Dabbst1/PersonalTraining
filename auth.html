@@ -23,6 +23,9 @@
     margin-top: -8px; margin-bottom: 16px; text-decoration: none;
   }
   .forgot-link:hover { color: var(--white); }
+  .intake-note { font-size: 0.82rem; color: var(--grey); line-height: 1.5; margin-bottom: 16px; }
+  .height-row { display: flex; gap: 10px; }
+  .height-row input { flex: 1; }
 </style>
 </head>
 <body>
@@ -59,6 +62,33 @@
         <input type="password" id="password" placeholder="••••••••" minlength="6" required>
       </div>
       <a href="#" class="forgot-link" id="forgot-link" style="display:none;">Forgot password?</a>
+
+      <div id="intake-fields" style="display:none;">
+        <p class="intake-note">Optional — helps your coach build your program. You can skip this and fill it in later from your Account page.</p>
+        <div class="form-field">
+          <label>Age</label>
+          <input type="number" id="intake-age" min="0" max="120" placeholder="e.g. 34">
+        </div>
+        <div class="form-field">
+          <label>Height</label>
+          <div class="height-row">
+            <input type="number" id="intake-height-ft" min="0" max="8" placeholder="Feet">
+            <input type="number" id="intake-height-in" min="0" max="11" placeholder="Inches">
+          </div>
+        </div>
+        <div class="form-field">
+          <label>Current Weight (lbs)</label>
+          <input type="number" id="intake-weight" min="0" step="0.1" placeholder="e.g. 165">
+        </div>
+        <div class="form-field">
+          <label>Goal Weight (lbs)</label>
+          <input type="number" id="intake-goal-weight" min="0" step="0.1" placeholder="e.g. 150">
+        </div>
+        <div class="form-field">
+          <label>Goal Body Fat %</label>
+          <input type="number" id="intake-goal-bodyfat" min="0" max="100" step="0.1" placeholder="e.g. 18">
+        </div>
+      </div>
 
       <div class="waiver-field" id="waiver-field" style="display:none;">
         <input type="checkbox" id="waiver-checkbox">
@@ -119,6 +149,7 @@
     forgotLink.style.display = mode === 'login' ? 'block' : 'none';
     document.getElementById('name-field').style.display = mode === 'signup' ? 'flex' : 'none';
     document.getElementById('full-name').required = mode === 'signup';
+    document.getElementById('intake-fields').style.display = mode === 'signup' ? 'block' : 'none';
     waiverField.style.display = (mode === 'signup' && WAIVER_ENABLED) ? 'flex' : 'none';
     messageEl.textContent = '';
     messageEl.className = 'form-error';
@@ -212,6 +243,28 @@
           if (WAIVER_ENABLED) {
             await supabaseClient.from('waiver_acceptances').insert({ user_id: data.user.id });
           }
+
+          // Save any intake info they filled in — all optional, so only
+          // write fields they actually entered rather than overwriting with
+          // blanks/zeros for anything skipped.
+          const age = document.getElementById('intake-age').value;
+          const heightFt = document.getElementById('intake-height-ft').value;
+          const heightIn = document.getElementById('intake-height-in').value;
+          const weight = document.getElementById('intake-weight').value;
+          const goalWeight = document.getElementById('intake-goal-weight').value;
+          const goalBodyFat = document.getElementById('intake-goal-bodyfat').value;
+
+          const intakeRow = { user_id: data.user.id };
+          if (age) intakeRow.age = Number(age);
+          if (heightFt || heightIn) intakeRow.height_inches = (Number(heightFt) || 0) * 12 + (Number(heightIn) || 0);
+          if (weight) intakeRow.current_weight_lbs = Number(weight);
+          if (goalWeight) intakeRow.goal_weight_lbs = Number(goalWeight);
+          if (goalBodyFat) intakeRow.goal_body_fat_percentage = Number(goalBodyFat);
+
+          if (Object.keys(intakeRow).length > 1) {
+            await supabaseClient.from('client_settings').upsert(intakeRow, { onConflict: 'user_id' });
+          }
+
           window.location.href = 'dashboard.html';
         } else {
           messageEl.className = 'form-success';
