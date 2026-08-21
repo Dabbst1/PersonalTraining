@@ -22,6 +22,7 @@ drop table if exists waiver_acceptances cascade;
 drop table if exists messages cascade;
 drop table if exists inquiries cascade;
 drop table if exists exercise_catalog cascade;
+drop table if exists food_logs cascade;
 drop table if exists workout_logs cascade;
 drop table if exists program_content cascade;
 drop table if exists purchases cascade;
@@ -142,6 +143,22 @@ create table workout_logs (
   unique(user_id, log_date)
 );
 
+-- FOOD LOGS (calorie tracking)
+-- A simple self-serve food diary — clients log what they ate and how many
+-- calories, nothing more. Deliberately does NOT calculate targets, macros,
+-- or recommendations of any kind — that's coaching/nutrition advice, and
+-- this is just a logging tool, same spirit as the workout check-in above.
+create table food_logs (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  log_date date not null,
+  entries jsonb not null default '[]',  -- [{ "name": "Chicken breast", "calories": 250 }, ...]
+  notes text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique(user_id, log_date)
+);
+
 -- ─────────────────────────────────────────────────────────────
 -- ROW LEVEL SECURITY
 -- This is the actual paywall. It's enforced by the database, not the
@@ -250,6 +267,27 @@ create policy "Users can update their own workout logs"
 
 create policy "Users can delete their own workout logs"
   on workout_logs for delete
+  using (auth.uid() = user_id);
+
+-- Same rules as workout_logs, for food_logs: a client sees and manages only
+-- their own entries; admins can view all (useful for coaching, without a
+-- dedicated admin screen for it in this pass).
+alter table food_logs enable row level security;
+
+create policy "Users can view their own food logs, admins can view all"
+  on food_logs for select
+  using (auth.uid() = user_id or is_admin());
+
+create policy "Users can insert their own food logs"
+  on food_logs for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can update their own food logs"
+  on food_logs for update
+  using (auth.uid() = user_id);
+
+create policy "Users can delete their own food logs"
+  on food_logs for delete
   using (auth.uid() = user_id);
 
 -- `admins` — nobody can read or write this from the browser, not even

@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nutrition — Built For More</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="site.css">
+<style>
+  main { max-width: 1000px; }
+
+  .calorie-summary {
+    background: var(--card); border: 1px solid var(--border); padding: 24px; margin-top: 24px;
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;
+  }
+  .calorie-total-block { text-align: center; }
+  .calorie-total-number { font-family: 'Bebas Neue', sans-serif; font-size: 2.6rem; color: var(--red); line-height: 1; }
+  .calorie-total-label {
+    font-family: 'Barlow Condensed', sans-serif; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--grey);
+    margin-top: 4px;
+  }
+  .calorie-avg-label { font-size: 0.85rem; color: var(--grey); text-align: right; }
+  .calorie-avg-label strong { color: var(--white); font-size: 1.1rem; }
+
+  .calendar-nav {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 32px; margin-bottom: 20px;
+  }
+  .calendar-nav button {
+    background: none; border: 1px solid var(--border); color: var(--white);
+    font-family: 'Barlow Condensed', sans-serif; font-size: 0.85rem; letter-spacing: 0.1em;
+    padding: 8px 16px; cursor: pointer; text-transform: uppercase;
+  }
+  .calendar-nav button:hover { border-color: var(--grey); }
+  .calendar-month-label { font-family: 'Bebas Neue', sans-serif; font-size: 1.6rem; letter-spacing: 0.05em; color: var(--white); }
+  .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .calendar-dow {
+    font-family: 'Barlow Condensed', sans-serif; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--grey); text-align: center; padding-bottom: 8px;
+  }
+  .calendar-day {
+    aspect-ratio: 1; background: var(--card); border: 1px solid var(--border);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 0.9rem; color: var(--light-grey); position: relative; transition: border-color 0.15s;
+  }
+  .calendar-day:hover { border-color: var(--grey); }
+  .calendar-day.empty { background: transparent; border: none; cursor: default; }
+  .calendar-day.logged { border-color: var(--red); }
+  .calendar-day .cal-value { font-size: 0.6rem; color: var(--red); margin-top: 2px; font-family: 'Barlow Condensed', sans-serif; }
+  .calendar-day.today { color: var(--white); font-weight: 600; }
+
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+    display: none; align-items: center; justify-content: center; z-index: 200; padding: 20px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--dark); border: 1px solid var(--border);
+    max-width: 480px; width: 100%; max-height: 85vh; overflow-y: auto; padding: 32px;
+  }
+  .modal-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.6rem; letter-spacing: 0.03em; color: var(--white); margin-bottom: 8px; }
+  .modal-total { font-size: 0.9rem; color: var(--light-grey); margin-bottom: 20px; }
+  .modal-total strong { color: var(--red); }
+
+  .entry-row { display: grid; grid-template-columns: 2.4fr 1fr auto; gap: 8px; margin-bottom: 8px; }
+  .entry-row input {
+    background: var(--black); border: 1px solid var(--border); color: var(--white);
+    padding: 8px 10px; font-size: 0.85rem; font-family: 'Barlow', sans-serif; width: 100%;
+  }
+  .entry-row button { background: none; border: none; color: var(--grey); cursor: pointer; font-size: 1.1rem; }
+  .entry-row button:hover { color: #ff6b6b; }
+
+  .add-entry-btn {
+    background: none; border: 1px dashed var(--border); color: var(--grey);
+    font-family: 'Barlow Condensed', sans-serif; font-size: 0.8rem; letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 10px; width: 100%; cursor: pointer; margin: 8px 0 20px;
+  }
+  .add-entry-btn:hover { border-color: var(--grey); color: var(--white); }
+  .modal-actions { display: flex; gap: 12px; margin-top: 20px; }
+  .modal-actions .btn-primary, .modal-actions .btn-ghost { flex: 1; text-align: center; }
+  .thread-empty { color: var(--grey); font-size: 0.9rem; text-align: center; margin: auto; }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="nav-logo">Built For More</a>
+  <ul class="nav-links">
+    <li><a href="dashboard.html" class="client-tab">My Program</a></li>
+    <li><a href="checkin.html" class="client-tab">Check In</a></li>
+    <li><a href="nutrition.html" class="client-tab active">Nutrition</a></li>
+    <li><a href="messages.html" class="client-tab">Messages</a></li>
+    <li><a href="account.html" class="client-tab">Account</a></li>
+    <li><a href="admin.html" id="admin-link" style="display:none;">Admin</a></li>
+    <li><a href="#" id="logout-link">Log Out</a></li>
+  </ul>
+</nav>
+
+<main>
+  <div class="state-message" id="loading-state">
+    <p>Loading...</p>
+  </div>
+
+  <div id="nutrition-content" style="display:none;">
+    <div class="section-label">Nutrition</div>
+    <h1 class="section-title">Log Your Food.</h1>
+    <p style="color: var(--grey); font-size: 0.9rem; margin-top: 8px;">A simple place to track what you eat and your daily calories — no targets, no macros breakdown, just your own log.</p>
+
+    <div class="calorie-summary">
+      <div class="calorie-total-block">
+        <div class="calorie-total-number" id="today-total">0</div>
+        <div class="calorie-total-label">Calories Today</div>
+      </div>
+      <div class="calorie-avg-label" id="avg-label"></div>
+    </div>
+
+    <div class="calendar-nav">
+      <button id="prev-month">&larr; Prev</button>
+      <div class="calendar-month-label" id="month-label"></div>
+      <button id="next-month">Next &rarr;</button>
+    </div>
+    <div class="calendar-grid" id="calendar-dow"></div>
+    <div class="calendar-grid" id="calendar-grid" style="margin-top: 4px;"></div>
+  </div>
+</main>
+
+<footer>
+  <div class="footer-logo">Built For More</div>
+  <p>&copy; 2026. All rights reserved.</p>
+</footer>
+
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <div class="modal-title" id="modal-date-label">Log Food</div>
+    <div class="modal-total">Total: <strong id="modal-total-calories">0</strong> calories</div>
+    <div id="entry-list"></div>
+    <button type="button" class="add-entry-btn" id="add-entry-btn">+ Add Food</button>
+    <div class="form-field">
+      <label>Notes</label>
+      <textarea id="log-notes" placeholder="Anything worth remembering about today?"></textarea>
+    </div>
+    <div class="form-error" id="modal-message"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn-ghost" id="modal-cancel">Cancel</button>
+      <button type="button" class="btn-primary" id="modal-save">Save Log</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script>
+  let currentUser = null;
+  let foodLogs = {}; // { 'YYYY-MM-DD': { entries: [{name, calories}], notes } }
+  let calendarDate = new Date();
+  let selectedDateStr = null;
+
+  async function init() {
+    if (!supabaseClient) {
+      document.getElementById('loading-state').innerHTML = '<p>Account system is not connected yet. Check back soon.</p>';
+      return;
+    }
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session) {
+      window.location.href = 'auth.html';
+      return;
+    }
+    currentUser = session.user;
+
+    const { data: isAdmin } = await supabaseClient.rpc('is_admin');
+    if (isAdmin) document.getElementById('admin-link').style.display = 'inline';
+
+    await loadFoodLogs();
+    renderCalendar();
+    renderSummary();
+
+    document.getElementById('loading-state').style.display = 'none';
+    document.getElementById('nutrition-content').style.display = 'block';
+  }
+
+  async function loadFoodLogs() {
+    const { data, error } = await supabaseClient
+      .from('food_logs')
+      .select('*')
+      .eq('user_id', currentUser.id)
+      .order('log_date', { ascending: true });
+    if (error) return;
+    foodLogs = {};
+    (data || []).forEach(row => {
+      foodLogs[row.log_date] = { entries: row.entries || [], notes: row.notes || '' };
+    });
+  }
+
+  function dayTotal(dateStr) {
+    const log = foodLogs[dateStr];
+    if (!log) return 0;
+    return (log.entries || []).reduce((sum, e) => sum + (Number(e.calories) || 0), 0);
+  }
+
+  function formatDateStr(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  function renderSummary() {
+    const todayStr = formatDateStr(new Date());
+    document.getElementById('today-total').textContent = dayTotal(todayStr);
+
+    // Average over the last 14 days that actually have a log — not every
+    // calendar day, so a couple of unlogged days don't skew it.
+    const today = new Date();
+    let sum = 0, count = 0;
+    for (let i = 0; i < 14; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const key = formatDateStr(d);
+      if (foodLogs[key]) { sum += dayTotal(key); count++; }
+    }
+    const avgEl = document.getElementById('avg-label');
+    if (count > 0) {
+      avgEl.innerHTML = `<strong>${Math.round(sum / count)}</strong><br>avg. calories/day, last ${count} logged day${count === 1 ? '' : 's'}`;
+    } else {
+      avgEl.textContent = 'No logs yet in the last 14 days.';
+    }
+  }
+
+  function renderCalendar() {
+    const dowEl = document.getElementById('calendar-dow');
+    dowEl.innerHTML = '';
+    ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(d => {
+      const el = document.createElement('div');
+      el.className = 'calendar-dow';
+      el.textContent = d;
+      dowEl.appendChild(el);
+    });
+
+    const gridEl = document.getElementById('calendar-grid');
+    gridEl.innerHTML = '';
+
+    const year = calendarDate.getFullYear();
+    const month = calendarDate.getMonth();
+    document.getElementById('month-label').textContent = calendarDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const todayStr = formatDateStr(new Date());
+
+    for (let i = 0; i < firstDay; i++) {
+      const empty = document.createElement('div');
+      empty.className = 'calendar-day empty';
+      gridEl.appendChild(empty);
+    }
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateObj = new Date(year, month, d);
+      const dateStr = formatDateStr(dateObj);
+      const cell = document.createElement('div');
+      cell.className = 'calendar-day';
+      if (foodLogs[dateStr]) cell.classList.add('logged');
+      if (dateStr === todayStr) cell.classList.add('today');
+      cell.innerHTML = `${d}` + (foodLogs[dateStr] ? `<div class="cal-value">${dayTotal(dateStr)}</div>` : '');
+      cell.addEventListener('click', () => openModal(dateStr));
+      gridEl.appendChild(cell);
+    }
+  }
+
+  document.getElementById('prev-month').addEventListener('click', () => {
+    calendarDate.setMonth(calendarDate.getMonth() - 1);
+    renderCalendar();
+  });
+  document.getElementById('next-month').addEventListener('click', () => {
+    calendarDate.setMonth(calendarDate.getMonth() + 1);
+    renderCalendar();
+  });
+
+  const modalOverlay = document.getElementById('modal-overlay');
+  const entryListEl = document.getElementById('entry-list');
+  const modalMessage = document.getElementById('modal-message');
+
+  function entryRow(name = '', calories = '') {
+    const row = document.createElement('div');
+    row.className = 'entry-row';
+    row.innerHTML = `
+      <input type="text" placeholder="Food (e.g. Grilled chicken & rice)" class="entry-name" value="${name}">
+      <input type="number" placeholder="Calories" class="entry-calories" min="0" value="${calories}">
+      <button type="button" title="Remove">&times;</button>
+    `;
+    row.querySelector('button').addEventListener('click', () => { row.remove(); updateModalTotal(); });
+    row.querySelector('.entry-calories').addEventListener('input', updateModalTotal);
+    return row;
+  }
+
+  document.getElementById('add-entry-btn').addEventListener('click', () => {
+    entryListEl.appendChild(entryRow());
+  });
+
+  function updateModalTotal() {
+    let total = 0;
+    entryListEl.querySelectorAll('.entry-calories').forEach(input => { total += Number(input.value) || 0; });
+    document.getElementById('modal-total-calories').textContent = total;
+  }
+
+  function openModal(dateStr) {
+    selectedDateStr = dateStr;
+    modalMessage.textContent = '';
+    const dateObj = new Date(dateStr + 'T00:00:00');
+    document.getElementById('modal-date-label').textContent =
+      dateObj.toLocaleDateString('default', { weekday: 'long', month: 'long', day: 'numeric' });
+
+    entryListEl.innerHTML = '';
+    const existing = foodLogs[dateStr];
+    if (existing && existing.entries && existing.entries.length) {
+      existing.entries.forEach(e => entryListEl.appendChild(entryRow(e.name || '', e.calories || '')));
+    } else {
+      entryListEl.appendChild(entryRow());
+    }
+    document.getElementById('log-notes').value = existing ? (existing.notes || '') : '';
+    updateModalTotal();
+
+    modalOverlay.classList.add('open');
+  }
+
+  document.getElementById('modal-cancel').addEventListener('click', () => {
+    modalOverlay.classList.remove('open');
+  });
+
+  document.getElementById('modal-save').addEventListener('click', async () => {
+    const rows = entryListEl.querySelectorAll('.entry-row');
+    const entries = [];
+    rows.forEach(row => {
+      const name = row.querySelector('.entry-name').value.trim();
+      const calories = Number(row.querySelector('.entry-calories').value) || 0;
+      if (!name) return;
+      entries.push({ name, calories });
+    });
+    const notes = document.getElementById('log-notes').value.trim();
+
+    const saveBtn = document.getElementById('modal-save');
+    saveBtn.disabled = true;
+
+    const { error } = await supabaseClient
+      .from('food_logs')
+      .upsert({
+        user_id: currentUser.id,
+        log_date: selectedDateStr,
+        entries,
+        notes,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'user_id,log_date' });
+
+    saveBtn.disabled = false;
+
+    if (error) {
+      modalMessage.textContent = 'Could not save — please try again.';
+      return;
+    }
+
+    foodLogs[selectedDateStr] = { entries, notes };
+    renderCalendar();
+    renderSummary();
+    modalOverlay.classList.remove('open');
+  });
+
+  document.getElementById('logout-link').addEventListener('click', async (e) => {
+    e.preventDefault();
+    if (supabaseClient) await supabaseClient.auth.signOut();
+    window.location.href = 'index.html';
+  });
+
+  init();
+</script>
+</body>
+</html>
