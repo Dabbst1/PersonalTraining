@@ -23,6 +23,7 @@ drop table if exists messages cascade;
 drop table if exists inquiries cascade;
 drop table if exists exercise_catalog cascade;
 drop table if exists food_logs cascade;
+drop table if exists client_settings cascade;
 drop table if exists workout_logs cascade;
 drop table if exists program_content cascade;
 drop table if exists purchases cascade;
@@ -159,6 +160,17 @@ create table food_logs (
   unique(user_id, log_date)
 );
 
+-- CLIENT SETTINGS
+-- Personal preferences a client sets for themselves — right now just an
+-- optional daily calorie target for the nutrition log. This is THEIR number,
+-- not something calculated or suggested by the app — keeps this a plain
+-- self-tracking tool rather than anything that looks like nutrition advice.
+create table client_settings (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  daily_calorie_goal integer,
+  updated_at timestamptz default now()
+);
+
 -- ─────────────────────────────────────────────────────────────
 -- ROW LEVEL SECURITY
 -- This is the actual paywall. It's enforced by the database, not the
@@ -288,6 +300,22 @@ create policy "Users can update their own food logs"
 
 create policy "Users can delete their own food logs"
   on food_logs for delete
+  using (auth.uid() = user_id);
+
+-- A client can only ever see or change their own settings — no admin
+-- visibility needed here, this is a personal preference, not client data.
+alter table client_settings enable row level security;
+
+create policy "Users can view their own settings"
+  on client_settings for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert their own settings"
+  on client_settings for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can update their own settings"
+  on client_settings for update
   using (auth.uid() = user_id);
 
 -- `admins` — nobody can read or write this from the browser, not even

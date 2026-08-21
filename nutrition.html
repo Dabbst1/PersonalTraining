@@ -24,6 +24,25 @@
   .calorie-avg-label { font-size: 0.85rem; color: var(--grey); text-align: right; }
   .calorie-avg-label strong { color: var(--white); font-size: 1.1rem; }
 
+  .goal-progress-bar { background: var(--black); border: 1px solid var(--border); height: 14px; overflow: hidden; }
+  .goal-progress-fill { height: 100%; background: var(--red); transition: width 0.3s, background 0.3s; }
+  .goal-progress-label { font-size: 0.78rem; color: var(--grey); margin-top: 6px; }
+
+  .goal-setting-row {
+    background: var(--card); border: 1px solid var(--border); padding: 16px 20px; margin-top: 16px;
+  }
+  .goal-setting-row label {
+    display: block; font-family: 'Barlow Condensed', sans-serif; font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--grey); margin-bottom: 10px;
+  }
+  .goal-setting-row input {
+    background: var(--black); border: 1px solid var(--border); color: var(--white);
+    padding: 8px 10px; font-family: 'Barlow', sans-serif; font-size: 0.9rem; width: 100%;
+  }
+
+  .modal-goal-indicator { font-size: 0.85rem; margin-top: -8px; margin-bottom: 16px; }
+  .modal-goal-indicator .goal-progress-bar { margin-top: 6px; }
+
   .calendar-nav {
     display: flex; justify-content: space-between; align-items: center;
     margin-top: 32px; margin-bottom: 20px;
@@ -113,7 +132,20 @@
         <div class="calorie-total-number" id="today-total">0</div>
         <div class="calorie-total-label">Calories Today</div>
       </div>
+      <div id="goal-progress-block" style="display:none; flex: 1; min-width: 200px; max-width: 340px;">
+        <div class="goal-progress-bar"><div class="goal-progress-fill" id="goal-progress-fill"></div></div>
+        <div class="goal-progress-label" id="goal-progress-label"></div>
+      </div>
       <div class="calorie-avg-label" id="avg-label"></div>
+    </div>
+
+    <div class="goal-setting-row">
+      <label for="goal-input">Daily Calorie Goal (optional — your own number, set it or leave it blank)</label>
+      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <input type="number" id="goal-input" min="0" placeholder="e.g. 2200" style="max-width:160px;">
+        <button class="btn-ghost" id="save-goal-btn">Save Goal</button>
+        <span id="goal-save-msg" style="font-size:0.82rem;"></span>
+      </div>
     </div>
 
     <div class="calendar-nav">
@@ -135,6 +167,10 @@
   <div class="modal">
     <div class="modal-title" id="modal-date-label">Log Food</div>
     <div class="modal-total">Total: <strong id="modal-total-calories">0</strong> calories</div>
+    <div class="modal-goal-indicator" id="modal-goal-indicator" style="display:none;">
+      <span id="modal-goal-text"></span>
+      <div class="goal-progress-bar"><div class="goal-progress-fill" id="modal-goal-fill"></div></div>
+    </div>
     <div id="entry-list"></div>
     <button type="button" class="add-entry-btn" id="add-entry-btn">+ Add Food</button>
     <div class="form-field">
@@ -156,6 +192,7 @@
   let foodLogs = {}; // { 'YYYY-MM-DD': { entries: [{name, calories}], notes } }
   let calendarDate = new Date();
   let selectedDateStr = null;
+  let calorieGoal = null; // the client's own number — never calculated or suggested by the app
 
   async function init() {
     if (!supabaseClient) {
@@ -173,11 +210,64 @@
     if (isAdmin) document.getElementById('admin-link').style.display = 'inline';
 
     await loadFoodLogs();
+    await loadGoal();
     renderCalendar();
     renderSummary();
 
     document.getElementById('loading-state').style.display = 'none';
     document.getElementById('nutrition-content').style.display = 'block';
+  }
+
+  async function loadGoal() {
+    const { data } = await supabaseClient
+      .from('client_settings')
+      .select('daily_calorie_goal')
+      .eq('user_id', currentUser.id)
+      .maybeSingle();
+    calorieGoal = data?.daily_calorie_goal || null;
+    document.getElementById('goal-input').value = calorieGoal || '';
+  }
+
+  document.getElementById('save-goal-btn').addEventListener('click', async () => {
+    const msgEl = document.getElementById('goal-save-msg');
+    const raw = document.getElementById('goal-input').value.trim();
+    const newGoal = raw ? Math.max(0, Math.round(Number(raw))) : null;
+
+    msgEl.style.color = 'var(--grey)';
+    msgEl.textContent = 'Saving...';
+
+    const { error } = await supabaseClient
+      .from('client_settings')
+      .upsert({ user_id: currentUser.id, daily_calorie_goal: newGoal, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+
+    if (error) {
+      msgEl.style.color = '#ff6b6b';
+      msgEl.textContent = 'Could not save — please try again.';
+      return;
+    }
+    calorieGoal = newGoal;
+    msgEl.style.color = '#6bcf7f';
+    msgEl.textContent = newGoal ? 'Goal saved.' : 'Goal cleared.';
+    renderSummary();
+  });
+
+  // Shared by the summary card and the logging modal — the client's own
+  // goal, reflected back at them, never a target the app itself decides.
+  function goalStatus(total, goal) {
+    const percent = Math.round((total / goal) * 100);
+    const widthPercent = Math.min(percent, 100);
+    let fillColor, label;
+    if (percent >= 100) {
+      fillColor = '#ff6b6b';
+      label = `${total} / ${goal} calories — you've reached your goal for today.`;
+    } else if (percent >= 90) {
+      fillColor = '#f0a83c';
+      label = `${total} / ${goal} calories — getting close to your goal.`;
+    } else {
+      fillColor = 'var(--light-grey)';
+      label = `${total} / ${goal} calories.`;
+    }
+    return { widthPercent, fillColor, label, percent };
   }
 
   async function loadFoodLogs() {
@@ -205,7 +295,19 @@
 
   function renderSummary() {
     const todayStr = formatDateStr(new Date());
-    document.getElementById('today-total').textContent = dayTotal(todayStr);
+    const todayTotal = dayTotal(todayStr);
+    document.getElementById('today-total').textContent = todayTotal;
+
+    const progressBlock = document.getElementById('goal-progress-block');
+    if (calorieGoal) {
+      const status = goalStatus(todayTotal, calorieGoal);
+      progressBlock.style.display = 'block';
+      document.getElementById('goal-progress-fill').style.width = status.widthPercent + '%';
+      document.getElementById('goal-progress-fill').style.background = status.fillColor;
+      document.getElementById('goal-progress-label').textContent = status.label;
+    } else {
+      progressBlock.style.display = 'none';
+    }
 
     // Average over the last 14 days that actually have a log — not every
     // calendar day, so a couple of unlogged days don't skew it.
@@ -299,6 +401,18 @@
     let total = 0;
     entryListEl.querySelectorAll('.entry-calories').forEach(input => { total += Number(input.value) || 0; });
     document.getElementById('modal-total-calories').textContent = total;
+
+    const indicator = document.getElementById('modal-goal-indicator');
+    if (calorieGoal) {
+      const status = goalStatus(total, calorieGoal);
+      indicator.style.display = 'block';
+      document.getElementById('modal-goal-text').textContent = status.label;
+      document.getElementById('modal-goal-text').style.color = status.percent >= 100 ? '#ff6b6b' : (status.percent >= 90 ? '#f0a83c' : 'var(--grey)');
+      document.getElementById('modal-goal-fill').style.width = status.widthPercent + '%';
+      document.getElementById('modal-goal-fill').style.background = status.fillColor;
+    } else {
+      indicator.style.display = 'none';
+    }
   }
 
   function openModal(dateStr) {
