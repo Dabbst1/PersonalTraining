@@ -174,6 +174,7 @@ create table client_settings (
   current_weight_lbs numeric(6,1),
   goal_weight_lbs numeric(6,1),
   goal_body_fat_percentage numeric(4,1),
+  last_reminder_sent_at timestamptz,  -- used by checkin-reminders to avoid emailing an inactive client every single day
   updated_at timestamptz default now()
 );
 
