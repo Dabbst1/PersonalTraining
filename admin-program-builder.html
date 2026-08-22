@@ -26,6 +26,16 @@
     padding: 10px 12px; font-family: 'Barlow', sans-serif; font-size: 0.9rem; width: 100%;
   }
   .builder-hint { font-size: 0.82rem; color: var(--grey); margin-top: 10px; grid-column: span 2; }
+  .client-stats-panel {
+    margin-top: 14px; padding: 14px 18px; background: var(--black); border: 1px solid var(--border);
+    display: flex; gap: 24px; flex-wrap: wrap;
+  }
+  .client-stat-item { font-size: 0.85rem; }
+  .client-stat-label {
+    font-family: 'Barlow Condensed', sans-serif; font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--grey); margin-bottom: 2px;
+  }
+  .client-stat-value { color: var(--white); }
 
   .week-editor {
     background: var(--card); border: 1px solid var(--border); padding: 20px 24px; margin-top: 20px;
@@ -116,6 +126,7 @@
         </select>
       </div>
       <p class="builder-hint" id="builder-hint">Leave "Build For" set to "Everyone" to edit the standard plan every client on this program sees. Pick a specific client to build (or override) a custom plan just for them — useful for 1:1 Coaching, or to tweak one client's plan without affecting anyone else.</p>
+      <div id="client-stats-panel" style="display:none; grid-column: span 2;"></div>
     </div>
 
     <div id="weeks-container"></div>
@@ -204,6 +215,47 @@
       select.appendChild(opt);
     });
     select.addEventListener('change', loadContentForSelection);
+    select.addEventListener('change', loadClientStatsPanel);
+  }
+
+  async function loadClientStatsPanel() {
+    const clientId = document.getElementById('client-select').value;
+    const panel = document.getElementById('client-stats-panel');
+
+    if (!clientId) {
+      panel.style.display = 'none';
+      return;
+    }
+
+    panel.className = 'client-stats-panel';
+    panel.style.display = 'flex';
+    panel.innerHTML = '<span style="color:var(--grey); font-size:0.85rem;">Loading stats...</span>';
+
+    const { data } = await supabaseClient
+      .from('client_settings')
+      .select('age, height_inches, current_weight_lbs, goal_weight_lbs, goal_body_fat_percentage')
+      .eq('user_id', clientId)
+      .maybeSingle();
+
+    if (!data || (!data.age && !data.height_inches && !data.current_weight_lbs && !data.goal_weight_lbs && !data.goal_body_fat_percentage)) {
+      panel.innerHTML = '<span style="color:var(--grey); font-size:0.85rem;">This client hasn\'t added any stats or goals yet.</span>';
+      return;
+    }
+
+    const heightStr = data.height_inches ? `${Math.floor(data.height_inches / 12)}'${data.height_inches % 12}"` : '—';
+    const items = [
+      ['Age', data.age || '—'],
+      ['Height', heightStr],
+      ['Weight', data.current_weight_lbs ? data.current_weight_lbs + ' lbs' : '—'],
+      ['Goal Weight', data.goal_weight_lbs ? data.goal_weight_lbs + ' lbs' : '—'],
+      ['Goal Body Fat', data.goal_body_fat_percentage ? data.goal_body_fat_percentage + '%' : '—'],
+    ];
+    panel.innerHTML = items.map(([label, value]) => `
+      <div class="client-stat-item">
+        <div class="client-stat-label">${label}</div>
+        <div class="client-stat-value">${value}</div>
+      </div>
+    `).join('');
   }
 
   async function loadContentForSelection() {
