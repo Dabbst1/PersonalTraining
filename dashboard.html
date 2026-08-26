@@ -83,6 +83,15 @@
   }
   .day-card li::before { content: '—'; position: absolute; left: 0; color: var(--grey); }
 
+  .watch-demo-btn {
+    display: block; margin-top: 4px;
+    background: none; border: none; color: var(--red); cursor: pointer;
+    font-family: 'Barlow', sans-serif; font-size: 0.82rem; font-weight: 500; padding: 0;
+  }
+  .watch-demo-btn:hover { text-decoration: underline; }
+  .exercise-video { margin-top: 10px; max-width: 480px; }
+  .exercise-video iframe { width: 100%; aspect-ratio: 16/9; border: 1px solid var(--border); display: block; }
+
   #week-nav {
     justify-content: space-between;
     align-items: center;
@@ -202,6 +211,7 @@
   let currentProgram = null;
   let currentWeekIndex = 0;
   let selectedDayName = null; // null = not yet decided; defaults to today's weekday on first render
+  let exerciseVideos = {}; // { 'exercise name (lowercase)': video_url }
 
   const loadingState = document.getElementById('loading-state');
   const noAccessState = document.getElementById('no-access-state');
@@ -223,6 +233,8 @@
 
     const { data: isAdmin } = await supabaseClient.rpc('is_admin');
     if (isAdmin) document.getElementById('admin-link').style.display = 'inline';
+
+    await loadExerciseVideos();
 
     // Find ALL of their active purchases — a client may have bought more than one program.
     const { data: purchases, error: purchaseErr } = await supabaseClient
@@ -255,6 +267,25 @@
 
     loadingState.style.display = 'none';
     programPageContent.style.display = 'block';
+  }
+
+  async function loadExerciseVideos() {
+    const { data } = await supabaseClient
+      .from('exercise_catalog')
+      .select('name, video_url')
+      .not('video_url', 'is', null);
+    (data || []).forEach(e => { exerciseVideos[e.name.trim().toLowerCase()] = e.video_url; });
+  }
+
+  // Converts a YouTube or Vimeo watch/share link into an embeddable player URL.
+  function toEmbedUrl(url) {
+    if (!url) return null;
+    url = url.trim();
+    let m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/|youtube\.com\/embed\/)([\w-]{6,})/);
+    if (m) return `https://www.youtube.com/embed/${m[1]}`;
+    m = url.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+    if (m) return `https://player.vimeo.com/video/${m[1]}`;
+    return null;
   }
 
   function renderSwitcher() {
@@ -456,7 +487,33 @@
       const ul = document.createElement('ul');
       (day.exercises || []).forEach(ex => {
         const li = document.createElement('li');
-        li.textContent = ex;
+        const exName = (ex.split('—')[0] || ex).trim();
+        const videoUrl = exerciseVideos[exName.toLowerCase()];
+
+        const textSpan = document.createElement('span');
+        textSpan.textContent = ex;
+        li.appendChild(textSpan);
+
+        if (videoUrl) {
+          const demoBtn = document.createElement('button');
+          demoBtn.type = 'button';
+          demoBtn.className = 'watch-demo-btn';
+          demoBtn.textContent = '▶ Watch demo';
+          let playerEl = null;
+          demoBtn.addEventListener('click', () => {
+            if (playerEl) { playerEl.remove(); playerEl = null; demoBtn.textContent = '▶ Watch demo'; return; }
+            const embedUrl = toEmbedUrl(videoUrl);
+            playerEl = document.createElement('div');
+            playerEl.className = 'exercise-video';
+            playerEl.innerHTML = embedUrl
+              ? `<iframe src="${embedUrl}" title="${exName} demo" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`
+              : '';
+            li.appendChild(playerEl);
+            demoBtn.textContent = '✕ Hide demo';
+          });
+          li.appendChild(demoBtn);
+        }
+
         ul.appendChild(li);
       });
       card.appendChild(ul);

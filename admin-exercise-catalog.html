@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Exercise Videos — Admin — Built For More</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="site.css">
+<style>
+  main { max-width: 900px; }
+
+  .catalog-hint { font-size: 0.85rem; color: var(--grey); margin-top: 10px; line-height: 1.5; }
+
+  .category-block { margin-top: 28px; }
+  .category-heading {
+    font-family: 'Barlow Condensed', sans-serif; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--grey);
+    border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 10px;
+  }
+
+  .video-row {
+    display: grid;
+    grid-template-columns: 1.3fr 1.7fr auto auto;
+    gap: 10px;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .video-row .ex-name { font-family: 'Barlow', sans-serif; font-size: 0.9rem; color: var(--white); }
+  .video-row input {
+    background: var(--black); border: 1px solid var(--border); color: var(--white);
+    padding: 8px 10px; font-family: 'Barlow', sans-serif; font-size: 0.85rem; width: 100%;
+  }
+  .video-row input.has-url { border-color: var(--grey); }
+  .video-row .save-status { font-size: 0.75rem; color: var(--grey); min-width: 58px; }
+  .video-row .save-status.saved { color: #7fd88f; }
+  .video-row .save-status.error { color: #ff6b6b; }
+  .video-row .preview-btn {
+    background: none; border: 1px solid var(--border); color: var(--grey);
+    padding: 6px 10px; font-family: 'Barlow', sans-serif; font-size: 0.78rem; cursor: pointer; white-space: nowrap;
+  }
+  .video-row .preview-btn:hover { color: var(--white); border-color: var(--grey); }
+  .video-row .preview-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  .video-preview { grid-column: 1 / -1; margin: 4px 0 12px; }
+  .video-preview iframe { width: 100%; max-width: 480px; aspect-ratio: 16/9; border: 1px solid var(--border); display: block; }
+  .video-preview .bad-url { font-size: 0.82rem; color: #ff6b6b; }
+
+  @media (max-width: 640px) {
+    .video-row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="nav-logo">Built For More</a>
+  <ul class="nav-links">
+    <li><a href="dashboard.html">My Program</a></li>
+    <li><a href="admin-messages.html">Messages</a></li>
+    <li><a href="admin-program-builder.html">Program Builder</a></li>
+    <li><a href="admin-exercise-catalog.html">Exercise Videos</a></li>
+    <li><a href="#" id="logout-link">Log Out</a></li>
+  </ul>
+</nav>
+
+<main>
+  <div class="state-message" id="loading-state">
+    <p>Loading...</p>
+  </div>
+
+  <div class="state-message" id="denied-state" style="display:none;">
+    <div class="section-label" style="justify-content:center;">Access Denied</div>
+    <h2 class="section-title">Admins Only.</h2>
+  </div>
+
+  <div id="catalog-content" style="display:none;">
+    <div class="section-label">Admin</div>
+    <h1 class="section-title">Exercise Videos.</h1>
+    <p class="catalog-hint">
+      Paste a YouTube or Vimeo link next to any exercise to attach a demo video. It saves automatically and
+      shows up as a "Watch demo" option anywhere that exercise appears in a client's program — no need to
+      touch each program individually. Leave it blank for exercises that don't need one.
+    </p>
+
+    <div id="categories-container"></div>
+  </div>
+</main>
+
+<footer>
+  <div class="footer-logo">Built For More</div>
+  <p>&copy; 2026. All rights reserved.</p>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script>
+  let allExercises = [];
+
+  async function init() {
+    if (!supabaseClient) {
+      document.getElementById('loading-state').innerHTML = '<p>Account system is not connected yet.</p>';
+      return;
+    }
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session) {
+      window.location.href = 'auth.html';
+      return;
+    }
+
+    const { data: isAdmin } = await supabaseClient.rpc('is_admin');
+    if (!isAdmin) {
+      document.getElementById('loading-state').style.display = 'none';
+      document.getElementById('denied-state').style.display = 'block';
+      return;
+    }
+
+    await loadCatalog();
+
+    document.getElementById('loading-state').style.display = 'none';
+    document.getElementById('catalog-content').style.display = 'block';
+  }
+
+  async function loadCatalog() {
+    const { data, error } = await supabaseClient
+      .from('exercise_catalog')
+      .select('id, name, category, video_url')
+      .order('category')
+      .order('name');
+    if (error) { console.error(error); return; }
+    allExercises = data || [];
+    renderCategories();
+  }
+
+  function renderCategories() {
+    const container = document.getElementById('categories-container');
+    container.innerHTML = '';
+
+    const byCategory = {};
+    allExercises.forEach(ex => {
+      byCategory[ex.category] = byCategory[ex.category] || [];
+      byCategory[ex.category].push(ex);
+    });
+
+    Object.keys(byCategory).forEach(category => {
+      const block = document.createElement('div');
+      block.className = 'category-block';
+
+      const heading = document.createElement('div');
+      heading.className = 'category-heading';
+      heading.textContent = category;
+      block.appendChild(heading);
+
+      byCategory[category].forEach(ex => {
+        block.appendChild(buildVideoRow(ex));
+      });
+
+      container.appendChild(block);
+    });
+  }
+
+  function buildVideoRow(ex) {
+    const row = document.createElement('div');
+    row.className = 'video-row';
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'ex-name';
+    nameEl.textContent = ex.name;
+    row.appendChild(nameEl);
+
+    const input = document.createElement('input');
+    input.type = 'url';
+    input.placeholder = 'https://youtube.com/watch?v=... or https://vimeo.com/...';
+    input.value = ex.video_url || '';
+    if (ex.video_url) input.classList.add('has-url');
+    row.appendChild(input);
+
+    const status = document.createElement('span');
+    status.className = 'save-status';
+    row.appendChild(status);
+
+    const previewBtn = document.createElement('button');
+    previewBtn.type = 'button';
+    previewBtn.className = 'preview-btn';
+    previewBtn.textContent = 'Preview';
+    previewBtn.disabled = !ex.video_url;
+    row.appendChild(previewBtn);
+
+    let previewEl = null;
+
+    async function save() {
+      const value = input.value.trim();
+      status.textContent = 'Saving…';
+      status.className = 'save-status';
+      const { error } = await supabaseClient
+        .from('exercise_catalog')
+        .update({ video_url: value || null })
+        .eq('id', ex.id);
+      if (error) {
+        status.textContent = 'Error';
+        status.className = 'save-status error';
+        console.error(error);
+        return;
+      }
+      ex.video_url = value || null;
+      input.classList.toggle('has-url', !!value);
+      previewBtn.disabled = !value;
+      status.textContent = 'Saved';
+      status.className = 'save-status saved';
+      setTimeout(() => { status.textContent = ''; status.className = 'save-status'; }, 1800);
+    }
+
+    input.addEventListener('blur', () => {
+      if (input.value.trim() !== (ex.video_url || '')) save();
+    });
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') input.blur();
+    });
+
+    previewBtn.addEventListener('click', () => {
+      if (previewEl) { previewEl.remove(); previewEl = null; return; }
+      const embedUrl = toEmbedUrl(ex.video_url);
+      previewEl = document.createElement('div');
+      previewEl.className = 'video-preview';
+      if (embedUrl) {
+        previewEl.innerHTML = `<iframe src="${embedUrl}" title="${ex.name} demo" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+      } else {
+        previewEl.innerHTML = `<p class="bad-url">Couldn't recognize that as a YouTube or Vimeo link — double-check the URL.</p>`;
+      }
+      row.appendChild(previewEl);
+    });
+
+    return row;
+  }
+
+  // Converts a YouTube or Vimeo watch/share link into an embeddable player URL.
+  function toEmbedUrl(url) {
+    if (!url) return null;
+    url = url.trim();
+    let m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/|youtube\.com\/embed\/)([\w-]{6,})/);
+    if (m) return `https://www.youtube.com/embed/${m[1]}`;
+    m = url.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+    if (m) return `https://player.vimeo.com/video/${m[1]}`;
+    return null;
+  }
+
+  document.getElementById('logout-link').addEventListener('click', async e => {
+    e.preventDefault();
+    await supabaseClient.auth.signOut();
+    window.location.href = 'index.html';
+  });
+
+  init();
+</script>
+</body>
+</html>
