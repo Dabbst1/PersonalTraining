@@ -112,6 +112,24 @@
   }
   .add-exercise-btn:hover { border-color: var(--grey); color: var(--white); }
   .modal-hint { font-size: 0.82rem; color: var(--grey); margin-bottom: 16px; line-height: 1.5; }
+  .scheduled-ref {
+    background: var(--black); border: 1px solid var(--border); padding: 12px 16px; margin-bottom: 16px;
+  }
+  .scheduled-ref-label {
+    font-family: 'Barlow Condensed', sans-serif; font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--grey); margin-bottom: 8px;
+  }
+  .scheduled-ref ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .scheduled-ref li { font-size: 0.9rem; color: var(--light-grey); padding-left: 14px; position: relative; }
+  .scheduled-ref li::before { content: '—'; position: absolute; left: 0; color: var(--grey); }
+  .scheduled-ref .watch-demo-btn {
+    display: block; margin-top: 3px;
+    background: none; border: none; color: var(--red); cursor: pointer;
+    font-family: 'Barlow', sans-serif; font-size: 0.78rem; font-weight: 500; padding: 0;
+  }
+  .scheduled-ref .watch-demo-btn:hover { text-decoration: underline; }
+  .scheduled-ref .exercise-video { margin-top: 8px; max-width: 400px; }
+  .scheduled-ref .exercise-video iframe { width: 100%; aspect-ratio: 16/9; border: 1px solid var(--border); display: block; }
   .modal-actions { display: flex; gap: 12px; margin-top: 20px; }
   .modal-actions .btn-primary, .modal-actions .btn-ghost { flex: 1; text-align: center; }
 
@@ -219,6 +237,7 @@
 <div class="modal-overlay" id="modal-overlay">
   <div class="modal">
     <div class="modal-title" id="modal-date-label">Log Workout</div>
+    <div id="scheduled-workout-ref"></div>
     <p class="modal-hint">Did something different today? Change any exercise below, or add a new one.</p>
     <div id="exercise-list"></div>
     <datalist id="exercise-suggestions"></datalist>
@@ -265,6 +284,8 @@
     const { data: isAdmin } = await supabaseClient.rpc('is_admin');
     if (isAdmin) document.getElementById('admin-link').style.display = 'inline';
 
+    await loadExerciseVideos();
+
     // Check-in is still purchase-gated — same rule as the program page,
     // just checking `purchases` directly rather than needing the protected
     // program_content table (this page never touches the actual workout plan).
@@ -307,6 +328,7 @@
 
   let programContentById = {};   // { program_id: content json }
   let purchaseDateById = {};     // { program_id: created_at }
+  let exerciseVideos = {}; // { 'exercise name (lowercase)': video_url }
 
   async function loadProgramContent() {
     const { data: purchaseRows } = await supabaseClient
@@ -333,6 +355,25 @@
       .in('program_id', programIds)
       .eq('user_id', currentUser.id);
     (customRows || []).forEach(row => { programContentById[row.program_id] = row.content; });
+  }
+
+  async function loadExerciseVideos() {
+    const { data } = await supabaseClient
+      .from('exercise_catalog')
+      .select('name, video_url')
+      .not('video_url', 'is', null);
+    (data || []).forEach(e => { exerciseVideos[e.name.trim().toLowerCase()] = e.video_url; });
+  }
+
+  // Converts a YouTube or Vimeo watch/share link into an embeddable player URL.
+  function toEmbedUrl(url) {
+    if (!url) return null;
+    url = url.trim();
+    let m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/|youtube\.com\/embed\/)([\w-]{6,})/);
+    if (m) return `https://www.youtube.com/embed/${m[1]}`;
+    m = url.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+    if (m) return `https://player.vimeo.com/video/${m[1]}`;
+    return null;
   }
 
   // Figures out which day of the program a given calendar date corresponds
@@ -571,6 +612,59 @@
     exerciseListEl.appendChild(exerciseRow());
   });
 
+  // Read-only reference list shown above the log form, for the day's
+  // scheduled exercises — including a "Watch demo" toggle for any that
+  // have a video attached in the catalog. Purely informational; editing
+  // still happens in the actual log rows below.
+  function renderScheduledRef(scheduled) {
+    const el = document.getElementById('scheduled-workout-ref');
+    if (!scheduled.length) { el.innerHTML = ''; return; }
+
+    const box = document.createElement('div');
+    box.className = 'scheduled-ref';
+
+    const label = document.createElement('div');
+    label.className = 'scheduled-ref-label';
+    label.textContent = "Today's Workout";
+    box.appendChild(label);
+
+    const ul = document.createElement('ul');
+    scheduled.forEach(e => {
+      const li = document.createElement('li');
+      const setsReps = e.sets && e.reps ? ` — ${e.sets}x${e.reps}` : '';
+      const textSpan = document.createElement('span');
+      textSpan.textContent = e.name + setsReps;
+      li.appendChild(textSpan);
+
+      const videoUrl = exerciseVideos[e.name.toLowerCase()];
+      if (videoUrl) {
+        const demoBtn = document.createElement('button');
+        demoBtn.type = 'button';
+        demoBtn.className = 'watch-demo-btn';
+        demoBtn.textContent = '▶ Watch demo';
+        let playerEl = null;
+        demoBtn.addEventListener('click', () => {
+          if (playerEl) { playerEl.remove(); playerEl = null; demoBtn.textContent = '▶ Watch demo'; return; }
+          const embedUrl = toEmbedUrl(videoUrl);
+          playerEl = document.createElement('div');
+          playerEl.className = 'exercise-video';
+          playerEl.innerHTML = embedUrl
+            ? `<iframe src="${embedUrl}" title="${e.name} demo" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`
+            : '';
+          li.appendChild(playerEl);
+          demoBtn.textContent = '✕ Hide demo';
+        });
+        li.appendChild(demoBtn);
+      }
+
+      ul.appendChild(li);
+    });
+    box.appendChild(ul);
+
+    el.innerHTML = '';
+    el.appendChild(box);
+  }
+
   function openModal(dateStr) {
     selectedDateStr = dateStr;
     modalMessage.textContent = '';
@@ -584,6 +678,8 @@
     const scheduled = getScheduledExercises(dateStr);
     const suggestionsEl = document.getElementById('exercise-suggestions');
     suggestionsEl.innerHTML = scheduled.map(e => `<option value="${e.name}"></option>`).join('');
+
+    renderScheduledRef(scheduled);
 
     exerciseListEl.innerHTML = '';
     const existing = workoutLogs[dateStr];
