@@ -642,9 +642,17 @@
     section { padding: 72px 24px; }
     .hero-content { padding: 0 24px 60px; }
     .pillars { grid-template-columns: 1fr; }
-    .gallery-grid { grid-template-columns: 1fr 1fr; }
-    .gallery-item.pillar-left, .gallery-item.pillar-right { grid-row: span 2; }
-    .gallery-item.banner { grid-column: 1 / -1; }
+    .gallery-grid { width: 92%; grid-template-columns: 1fr; }
+    .gallery-item.pillar-left,
+    .gallery-item.pillar-right,
+    .gallery-item.stack-top,
+    .gallery-item.stack-bottom,
+    .gallery-item.banner {
+      grid-column: 1;
+      grid-row: auto;
+    }
+    .gallery-item.pillar-left, .gallery-item.pillar-right { aspect-ratio: 799 / 960; }
+    .gallery-item + .gallery-item { margin-top: 3px; }
     .philosophy { grid-template-columns: 1fr; gap: 40px; }
     .video-grid { grid-template-columns: 1fr; }
     .program-grid { grid-template-columns: 1fr; }
