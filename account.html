@@ -17,7 +17,7 @@
     <li><a href="dashboard.html" class="client-tab">My Program</a></li>
     <li><a href="checkin.html" class="client-tab">Check In</a></li>
     <li><a href="nutrition.html" class="client-tab">Nutrition</a></li>
-    <li><a href="messages.html" class="client-tab">Messages</a></li>
+    <li id="messages-nav-item"><a href="messages.html" class="client-tab">Messages</a></li>
     <li><a href="account.html" class="client-tab active">Account</a></li>
     <li><a href="#" id="logout-link">Log Out</a></li>
   </ul>
@@ -110,6 +110,21 @@
     }
     currentUser = session.user;
     document.getElementById('email-input').value = session.user.email || '';
+
+    const { data: isAdmin } = await supabaseClient.rpc('is_admin');
+    if (!isAdmin) {
+      const { data: msgPurchases } = await supabaseClient
+        .from('purchases')
+        .select('program_id')
+        .eq('user_id', currentUser.id)
+        .eq('status', 'active');
+      const canMessage = (msgPurchases || []).some(p => p.program_id !== 'built-for-more-6wk');
+      if (!canMessage) {
+        const navItem = document.getElementById('messages-nav-item');
+        if (navItem) navItem.style.display = 'none';
+      }
+    }
+
     await loadSubscriptionStatus();
     await loadStats();
   }

@@ -188,7 +188,7 @@
     <li><a href="dashboard.html" class="client-tab">My Program</a></li>
     <li><a href="checkin.html" class="client-tab active">Check In</a></li>
     <li><a href="nutrition.html" class="client-tab">Nutrition</a></li>
-    <li><a href="messages.html" class="client-tab">Messages</a></li>
+    <li id="messages-nav-item"><a href="messages.html" class="client-tab">Messages</a></li>
     <li><a href="account.html" class="client-tab">Account</a></li>
     <li><a href="admin.html" id="admin-link" style="display:none;">Admin</a></li>
     <li><a href="#" id="logout-link">Log Out</a></li>
@@ -283,6 +283,21 @@
 
     const { data: isAdmin } = await supabaseClient.rpc('is_admin');
     if (isAdmin) document.getElementById('admin-link').style.display = 'inline';
+
+    // Direct messaging isn't part of the 6-Week program — hide the nav
+    // link unless the client has an active purchase in some other program.
+    if (!isAdmin) {
+      const { data: msgPurchases } = await supabaseClient
+        .from('purchases')
+        .select('program_id')
+        .eq('user_id', currentUser.id)
+        .eq('status', 'active');
+      const canMessage = (msgPurchases || []).some(p => p.program_id !== 'built-for-more-6wk');
+      if (!canMessage) {
+        const navItem = document.getElementById('messages-nav-item');
+        if (navItem) navItem.style.display = 'none';
+      }
+    }
 
     await loadExerciseVideos();
 

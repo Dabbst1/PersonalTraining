@@ -70,6 +70,12 @@
     <p>Loading...</p>
   </div>
 
+  <div class="state-message" id="denied-state" style="display:none;">
+    <div class="section-label" style="justify-content:center;">Messages</div>
+    <h2 class="section-title">Not Included In Your Program.</h2>
+    <p style="color: var(--grey); font-size: 0.9rem; margin-top: 8px;">Direct coach messaging isn't part of the 6-Week Built For More program. Reach out through the Contact page, or upgrade to a program that includes it.</p>
+  </div>
+
   <div id="messages-content" style="display:none;">
     <div class="section-label">Messages</div>
     <h1 class="section-title">Talk To Your Coach.</h1>
@@ -110,6 +116,22 @@
 
     const { data: isAdmin } = await supabaseClient.rpc('is_admin');
     if (isAdmin) document.getElementById('admin-link').style.display = 'inline';
+
+    // Direct messaging isn't part of the 6-Week program — a client only
+    // qualifies if they have an active purchase in some OTHER program too.
+    if (!isAdmin) {
+      const { data: purchases } = await supabaseClient
+        .from('purchases')
+        .select('program_id')
+        .eq('user_id', currentUser.id)
+        .eq('status', 'active');
+      const eligible = (purchases || []).some(p => p.program_id !== 'built-for-more-6wk');
+      if (!eligible) {
+        document.getElementById('loading-state').style.display = 'none';
+        document.getElementById('denied-state').style.display = 'block';
+        return;
+      }
+    }
 
     document.getElementById('loading-state').style.display = 'none';
     document.getElementById('messages-content').style.display = 'block';
