@@ -610,6 +610,16 @@
   }
   .rec-card.show { display: block; animation: recIn 0.5s ease both; }
   @keyframes recIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+  .rec-headline {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 3.6rem; line-height: 0.95; letter-spacing: 0.02em;
+    color: var(--white); margin: 0;
+  }
+  .rec-lead {
+    font-size: 1.35rem; line-height: 1.5; font-weight: 400;
+    color: var(--light-grey); margin: 16px 0 0; max-width: 34em;
+  }
+  .rec-divider { height: 1px; background: var(--border); margin: 28px 0 24px; }
   .rec-eyebrow {
     font-family: 'Barlow Condensed', sans-serif;
     font-size: 0.72rem; font-weight: 600; letter-spacing: 0.25em;
@@ -617,8 +627,8 @@
   }
   .rec-name {
     font-family: 'Bebas Neue', sans-serif;
-    font-size: 2.6rem; line-height: 1; letter-spacing: 0.02em;
-    color: var(--white); margin: 10px 0 6px;
+    font-size: 2rem; line-height: 1; letter-spacing: 0.02em;
+    color: var(--white); margin: 8px 0 6px;
   }
   .rec-price { font-family: 'Barlow Condensed', sans-serif; color: var(--light-grey); letter-spacing: 0.08em; }
   .rec-price strong { color: var(--white); font-size: 1.3rem; }
@@ -635,7 +645,9 @@
   .rec-alt a { color: var(--light-grey); }
   @media (max-width: 600px) {
     .rec-card { padding: 28px 20px; }
-    .rec-name { font-size: 2.2rem; }
+    .rec-headline { font-size: 2.7rem; }
+    .rec-lead { font-size: 1.15rem; }
+    .rec-name { font-size: 1.8rem; }
   }
   .rec-note { margin-top: 20px; font-size: 0.78rem; color: var(--grey); text-align: center; }
 
@@ -1041,14 +1053,16 @@
         <p class="form-note" id="apply-form-note">Applications are typically reviewed within 48 hours. Only serious applicants will be contacted.</p>
       </form>
       <div class="rec-card" id="rec-card" aria-live="polite">
-        <div class="rec-eyebrow">Application received — your recommended program</div>
+        <h3 class="rec-headline">Application Received</h3>
+        <p class="rec-lead">A coach still reviews every application and will follow up within 48 hours — no need to wait to get started.</p>
+        <div class="rec-divider"></div>
+        <div class="rec-eyebrow">Your recommended program</div>
         <div class="rec-name" id="rec-name"></div>
         <div class="rec-price" id="rec-price"></div>
         <div class="rec-why-label">Why this fits you</div>
         <ul class="rec-reasons" id="rec-reasons"></ul>
         <a href="#" class="program-buy" id="rec-buy" data-plan="">Start This Program</a>
         <p class="rec-alt" id="rec-alt"></p>
-        <p class="rec-note">A coach still reviews every application and will follow up within 48 hours — no need to wait to get started.</p>
       </div>
     </div>
   </div>
@@ -1221,7 +1235,7 @@
     document.getElementById('coaching-form').style.display = 'none';
     const card = document.getElementById('rec-card');
     card.classList.add('show');
-    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    card.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   // "Apply for Coaching" — sends straight into the admin inbox (Supabase)
