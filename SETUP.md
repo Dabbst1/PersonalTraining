@@ -147,6 +147,42 @@ Custom Coaching (1:1) is the one program that renews monthly instead of being a 
 
 ---
 
+## Part 7: Spam protection for coaching applications
+
+Bots were filling out the "Apply for Coaching" form with random-letter answers. The database used to accept submissions straight from the browser, so bots could skip the form and write directly to it. Now every application goes through the `submit-inquiry` function, which filters out bots before anything reaches your inbox.
+
+**Do these in order. The order matters:** if you run the SQL before deploying the function, the form stops working until the function is live.
+
+1. **Deploy the function**
+   ```
+   supabase functions new submit-inquiry
+   ```
+   Replace the generated `supabase/functions/submit-inquiry/index.ts` with `supabase-edge-function-submit-inquiry.ts` from this folder. If your CLI scopes secrets per-function, set the service role key again:
+   ```
+   supabase secrets set SUPABASE_SERVICE_ROLE_KEY=xxxxx
+   ```
+   Deploy it with `--no-verify-jwt`, because people applying aren't logged in:
+   ```
+   supabase functions deploy submit-inquiry --no-verify-jwt
+   ```
+2. **Push the updated site files** (`index.html`, `admin-messages.html`, `supabase-config.js`) to GitHub and wait about a minute for GitHub Pages to update.
+3. **Run the SQL fix.** Supabase → **SQL Editor** → paste all of `fix-inquiry-spam.sql` → Run. This closes the direct-insert door, adds the spam columns, and deletes the existing spam. To see what will be deleted before running it, run just the commented-out `SELECT` near the bottom first.
+4. **Test it.** Submit a real application from your phone and confirm it lands in the inbox.
+
+**Optional but recommended: Cloudflare Turnstile.** This is a free CAPTCHA that's invisible to almost everyone. Add it if bots ever get past the other checks.
+1. Go to dash.cloudflare.com → **Turnstile** → **Add widget**. Add `thephenomregime.com` as the domain and choose **Managed** mode.
+2. Paste the **Site Key** into `supabase-config.js` as `TURNSTILE_SITE_KEY`, then push it to GitHub.
+3. Set the **Secret Key** in Supabase:
+   ```
+   supabase secrets set TURNSTILE_SECRET_KEY=0x4AAA...
+   ```
+   Set both keys at once. If the secret is set without the site key, every application will fail the check.
+
+**What gets blocked and what gets flagged:**
+- **Silently dropped** (the bot thinks it worked): the hidden honeypot field was filled in; the form was submitted in under 4 seconds; 2+ answers are random letters like `rDxcylKWeyCfMCJqq`; a dropdown answer isn't one of the real options.
+- **Saved but flagged:** one random-letter answer, a random-letter name, or a dot-stuffed Gmail address like `s.zm.c.r.2.lvp@gmail.com`. These go into a collapsed **"Show possible spam"** section at the bottom of Coaching Inquiries, so a real lead is never lost. Use **Not Spam** to move one back into the main list, or **Delete** to remove it.
+- **Rate limit:** max 3 applications per email or device per hour.
+
 ## Files in this folder
 
 | File | What it is | Do you edit it? |
@@ -167,6 +203,8 @@ Custom Coaching (1:1) is the one program that renews monthly instead of being a 
 | `supabase-edge-function-stripe-webhook.ts` | Grants access on purchase, revokes on refund/cancellation, sends welcome email | Deploy once via Supabase CLI (Part 3) |
 | `supabase-edge-function-checkin-reminders.ts` | Emails clients who've gone quiet | Deploy + schedule once (Part 5) |
 | `supabase-edge-function-cancel-subscription.ts` | Lets a client cancel/resume their coaching subscription | Deploy once via Supabase CLI (Part 6) |
+| `supabase-edge-function-submit-inquiry.ts` | Filters bot spam out of coaching applications | Deploy once via Supabase CLI (Part 7) |
+| `fix-inquiry-spam.sql` | One-time spam fix + cleanup for the inquiries table | Run once, after deploying submit-inquiry (Part 7) |
 
 ## Updating the actual workout plan content
 
@@ -182,4 +220,4 @@ The waiver text itself is a placeholder right now (search `auth.html` for "full 
 
 ## Deploying
 
-Upload all files except `SETUP.md` and the two `.ts` edge function files (those deploy separately via the Supabase CLI, not GitHub Pages) to your Dabbst1/PersonalTraining repo and push.
+Upload all files except `SETUP.md`, the `.sql` files, and the `.ts` edge function files (those deploy separately via the Supabase CLI, not GitHub Pages) to your Dabbst1/PersonalTraining repo and push.

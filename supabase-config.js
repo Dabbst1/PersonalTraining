@@ -18,3 +18,13 @@ const supabaseClient = (SUPABASE_URL && SUPABASE_ANON_KEY)
 if (!supabaseClient) {
   console.warn('Supabase is not configured yet — edit supabase-config.js with your project URL and anon key.');
 }
+
+// ═══════════════════════════════════════════════════════════════
+// CLOUDFLARE TURNSTILE (spam protection for the coaching application form)
+// Optional but recommended. Get a free site key at dash.cloudflare.com →
+// Turnstile → Add widget (add thephenomregime.com as the domain). Paste the
+// SITE key here (it's public). The SECRET key goes into Supabase instead:
+//   supabase secrets set TURNSTILE_SECRET_KEY=...
+// Leave this empty until both are set — the form works without it.
+// ═══════════════════════════════════════════════════════════════
+const TURNSTILE_SITE_KEY = '';

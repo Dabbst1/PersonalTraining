@@ -116,6 +116,10 @@
   .inquiry-field-value { font-size: 0.87rem; color: var(--light-grey); line-height: 1.5; }
   .inquiry-field-value.full { grid-column: span 2; }
   .inquiry-actions { margin-top: 18px; display: flex; gap: 10px; }
+  .inquiry-actions { flex-wrap: wrap; }
+  .inquiry-card.flagged { opacity: 0.75; border-left: 3px solid var(--grey); }
+  .spam-reasons { margin-top: 10px; font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: #ffb347; }
+  .flagged-toggle { margin-top: 24px; margin-bottom: 12px; }
 
   @media (max-width: 800px) {
     .inquiry-fields { grid-template-columns: 1fr; }
@@ -245,20 +249,51 @@
     renderInquiries();
   }
 
+  let showFlagged = false;
+
+  function inquiryCardHtml(i, fieldLabels, fullWidthFields) {
+    const date = new Date(i.created_at).toLocaleDateString('default', { month: 'short', day: 'numeric', year: 'numeric' });
+    const fieldsHtml = Object.keys(fieldLabels).map(key => {
+      if (!i[key]) return '';
+      return `<div class="inquiry-field-value ${fullWidthFields.includes(key) ? 'full' : ''}"><div class="inquiry-field-label">${fieldLabels[key]}</div>${escapeHtml(i[key])}</div>`;
+    }).join('');
+    const reasons = (i.spam_reasons || []).length
+      ? `<div class="spam-reasons">Flagged: ${i.spam_reasons.map(escapeHtml).join(' · ')}</div>` : '';
+
+    const actions = i.flagged
+      ? `<button class="btn-primary not-spam-btn" data-id="${i.id}">Not Spam</button>
+         <button class="btn-ghost delete-inquiry-btn" data-id="${i.id}">Delete</button>`
+      : `<a class="btn-primary" href="mailto:${encodeURIComponent(i.email)}?subject=${encodeURIComponent('Re: Your Coaching Application')}">Reply By Email</a>
+         ${!i.read_at ? `<button class="btn-ghost mark-read-btn" data-id="${i.id}">Mark As Read</button>` : ''}
+         <button class="btn-ghost delete-inquiry-btn" data-id="${i.id}">Delete</button>`;
+
+    return `
+      <div class="inquiry-card ${!i.read_at && !i.flagged ? 'unread' : ''} ${i.flagged ? 'flagged' : ''}" data-id="${i.id}">
+        <div class="inquiry-top">
+          <div>
+            <div class="inquiry-name">${escapeHtml(i.full_name)}</div>
+            <div class="inquiry-email">${escapeHtml(i.email)}</div>
+          </div>
+          <div class="inquiry-date">${date}</div>
+        </div>
+        ${reasons}
+        <div class="inquiry-fields">${fieldsHtml}</div>
+        <div class="inquiry-actions">${actions}</div>
+      </div>
+    `;
+  }
+
   function renderInquiries() {
+    const real = inquiries.filter(i => !i.flagged);
+    const flagged = inquiries.filter(i => i.flagged);
+
     const badge = document.getElementById('inquiries-badge');
-    const unreadCount = inquiries.filter(i => !i.read_at).length;
+    const unreadCount = real.filter(i => !i.read_at).length;
     if (unreadCount > 0) {
       badge.textContent = unreadCount;
       badge.style.display = 'inline-block';
     } else {
       badge.style.display = 'none';
-    }
-
-    const listEl = document.getElementById('inquiries-list');
-    if (!inquiries.length) {
-      listEl.innerHTML = '<p style="color:var(--grey); margin-top:16px;">No coaching applications yet.</p>';
-      return;
     }
 
     const fieldLabels = {
@@ -268,34 +303,41 @@
     };
     const fullWidthFields = ['goal_importance', 'already_tried', 'injuries'];
 
-    listEl.innerHTML = inquiries.map(i => {
-      const date = new Date(i.created_at).toLocaleDateString('default', { month: 'short', day: 'numeric', year: 'numeric' });
-      const fieldsHtml = Object.keys(fieldLabels).map(key => {
-        if (!i[key]) return '';
-        return `<div class="inquiry-field-value ${fullWidthFields.includes(key) ? 'full' : ''}"><div class="inquiry-field-label">${fieldLabels[key]}</div>${escapeHtml(i[key])}</div>`;
-      }).join('');
+    const listEl = document.getElementById('inquiries-list');
+    let html = real.length
+      ? real.map(i => inquiryCardHtml(i, fieldLabels, fullWidthFields)).join('')
+      : '<p style="color:var(--grey); margin-top:16px;">No coaching applications yet.</p>';
 
-      return `
-        <div class="inquiry-card ${!i.read_at ? 'unread' : ''}" data-id="${i.id}">
-          <div class="inquiry-top">
-            <div>
-              <div class="inquiry-name">${escapeHtml(i.full_name)}</div>
-              <div class="inquiry-email">${escapeHtml(i.email)}</div>
-            </div>
-            <div class="inquiry-date">${date}</div>
-          </div>
-          <div class="inquiry-fields">${fieldsHtml}</div>
-          <div class="inquiry-actions">
-            <a class="btn-primary" href="mailto:${encodeURIComponent(i.email)}?subject=${encodeURIComponent('Re: Your Coaching Application')}">Reply By Email</a>
-            ${!i.read_at ? `<button class="btn-ghost mark-read-btn" data-id="${i.id}">Mark As Read</button>` : ''}
-          </div>
-        </div>
-      `;
-    }).join('');
+    if (flagged.length) {
+      html += `
+        <button class="btn-ghost flagged-toggle" id="flagged-toggle">
+          ${showFlagged ? 'Hide' : 'Show'} possible spam (${flagged.length})
+        </button>
+        <div id="flagged-list" style="display:${showFlagged ? 'block' : 'none'};">
+          ${flagged.map(i => inquiryCardHtml(i, fieldLabels, fullWidthFields)).join('')}
+        </div>`;
+    }
+    listEl.innerHTML = html;
+
+    const toggle = document.getElementById('flagged-toggle');
+    if (toggle) toggle.addEventListener('click', () => { showFlagged = !showFlagged; renderInquiries(); });
 
     listEl.querySelectorAll('.mark-read-btn').forEach(btn => {
       btn.addEventListener('click', async () => {
         await supabaseClient.from('inquiries').update({ read_at: new Date().toISOString() }).eq('id', btn.dataset.id);
+        await loadInquiries();
+      });
+    });
+    listEl.querySelectorAll('.not-spam-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        await supabaseClient.from('inquiries').update({ flagged: false }).eq('id', btn.dataset.id);
+        await loadInquiries();
+      });
+    });
+    listEl.querySelectorAll('.delete-inquiry-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('Delete this application permanently?')) return;
+        await supabaseClient.from('inquiries').delete().eq('id', btn.dataset.id);
         await loadInquiries();
       });
     });
