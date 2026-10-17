@@ -263,7 +263,7 @@
     const actions = i.flagged
       ? `<button class="btn-primary not-spam-btn" data-id="${i.id}">Not Spam</button>
          <button class="btn-ghost delete-inquiry-btn" data-id="${i.id}">Delete</button>`
-      : `<a class="btn-primary" href="mailto:${encodeURIComponent(i.email)}?subject=${encodeURIComponent('Re: Your Coaching Application')}">Reply By Email</a>
+      : `<a class="btn-primary" target="_blank" rel="noopener" href="https://mail.google.com/mail/?view=cm&fs=1&authuser=thephenomregime@gmail.com&to=${encodeURIComponent(i.email)}&su=${encodeURIComponent('Re: Your Coaching Application')}">Reply By Email</a>
          ${!i.read_at ? `<button class="btn-ghost mark-read-btn" data-id="${i.id}">Mark As Read</button>` : ''}
          <button class="btn-ghost delete-inquiry-btn" data-id="${i.id}">Delete</button>`;
 
