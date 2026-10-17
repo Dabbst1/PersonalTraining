@@ -1296,7 +1296,7 @@
       const turnstileToken = (turnstileWidgetId !== null && window.turnstile)
         ? turnstile.getResponse(turnstileWidgetId) : '';
 
-      const { data: result, error } = await supabaseClient.functions.invoke('submit-inquiry', { body: {
+      const { data: result, error } = await supabaseClient.functions.invoke('swift-action', { body: {
         full_name: fullName,
         email: email,
         main_goal: document.getElementById('apply-main-goal').value || null,
