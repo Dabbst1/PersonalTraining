@@ -252,7 +252,7 @@
     await loadExerciseVideos();
 
     // Find ALL of their active purchases — a client may have bought more than one program.
-    const { data: purchases, error: purchaseErr } = await supabaseClient
+    let { data: purchases, error: purchaseErr } = await supabaseClient
       .from('purchases')
       .select('*, programs(*)')
       .eq('user_id', currentUser.id)
@@ -262,6 +262,25 @@
     if (purchaseErr) {
       loadingState.innerHTML = '<p>Something went wrong loading your account. Please refresh.</p>';
       return;
+    }
+
+    // Admins can view every program, whether or not they have a purchase
+    // record for it. Real purchase rows are kept when they exist; any
+    // program an admin is missing gets added so it still shows up.
+    if (isAdmin) {
+      const { data: allPrograms } = await supabaseClient.from('programs').select('*');
+      const owned = new Set((purchases || []).map(p => p.program_id));
+      const extras = (allPrograms || [])
+        .filter(pr => !owned.has(pr.id))
+        .map(pr => ({
+          user_id: currentUser.id,
+          program_id: pr.id,
+          status: 'active',
+          created_at: new Date().toISOString(),
+          programs: pr
+        }));
+      purchases = [...(purchases || []), ...extras]
+        .sort((a, b) => (a.programs.weeks || 99) - (b.programs.weeks || 99));
     }
 
     if (!purchases || purchases.length === 0) {
