@@ -576,10 +576,6 @@
   }
   .form-field select option { background: var(--dark); }
   .form-field textarea { min-height: 90px; resize: vertical; }
-  /* Honeypot: off-screen, not display:none, so bots still "see" and fill it. */
-  .hp-field { position: absolute !important; left: -10000px !important; width: 1px; height: 1px; overflow: hidden; }
-  .turnstile-wrap { grid-column: span 2; }
-  .turnstile-wrap:empty { display: none; }
   .form-submit {
     grid-column: span 2;
     margin-top: 8px;
@@ -604,6 +600,44 @@
     text-align: center;
     margin-top: 8px;
   }
+
+  /* PROGRAM RECOMMENDATION (shown after the application is submitted) */
+  .rec-card {
+    display: none;
+    background: var(--card);
+    border: 1px solid var(--red);
+    padding: 36px 32px;
+  }
+  .rec-card.show { display: block; animation: recIn 0.5s ease both; }
+  @keyframes recIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+  .rec-eyebrow {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.72rem; font-weight: 600; letter-spacing: 0.25em;
+    text-transform: uppercase; color: var(--red);
+  }
+  .rec-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.6rem; line-height: 1; letter-spacing: 0.02em;
+    color: var(--white); margin: 10px 0 6px;
+  }
+  .rec-price { font-family: 'Barlow Condensed', sans-serif; color: var(--light-grey); letter-spacing: 0.08em; }
+  .rec-price strong { color: var(--white); font-size: 1.3rem; }
+  .rec-why-label {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.7rem; font-weight: 600; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--grey); margin: 24px 0 10px;
+  }
+  .rec-reasons { list-style: none; padding: 0; margin: 0 0 28px; display: flex; flex-direction: column; gap: 8px; }
+  .rec-reasons li { display: flex; gap: 10px; color: var(--light-grey); font-size: 0.95rem; line-height: 1.5; }
+  .rec-reasons li::before { content: '+'; color: var(--red); font-weight: 700; flex-shrink: 0; }
+  .rec-card .program-buy { display: block; text-align: center; }
+  .rec-alt { margin-top: 16px; font-size: 0.85rem; color: var(--grey); text-align: center; }
+  .rec-alt a { color: var(--light-grey); }
+  @media (max-width: 600px) {
+    .rec-card { padding: 28px 20px; }
+    .rec-name { font-size: 2.2rem; }
+  }
+  .rec-note { margin-top: 20px; font-size: 0.78rem; color: var(--grey); text-align: center; }
 
   /* FOOTER */
   footer {
@@ -663,7 +697,7 @@
     .programs-footnote { flex-direction: column; align-items: flex-start; }
     .intake-grid { grid-template-columns: 1fr; gap: 48px; }
     .form-grid { grid-template-columns: 1fr; }
-    .form-field.full, .form-submit, .form-note, .turnstile-wrap { grid-column: span 1; }
+    .form-field.full, .form-submit, .form-note { grid-column: span 1; }
     footer { flex-direction: column; gap: 16px; text-align: center; }
   }
 </style>
@@ -1001,17 +1035,21 @@
             <option>Still figuring it out</option>
           </select>
         </div>
-        <!-- Spam trap: real people never see or fill this. -->
-        <div class="hp-field" aria-hidden="true">
-          <label for="apply-website">Website</label>
-          <input type="text" name="website" id="apply-website" tabindex="-1" autocomplete="off">
-        </div>
-        <div class="turnstile-wrap" id="apply-turnstile"></div>
         <div class="form-submit">
           <button type="submit" id="apply-submit-btn">Submit Application</button>
         </div>
         <p class="form-note" id="apply-form-note">Applications are typically reviewed within 48 hours. Only serious applicants will be contacted.</p>
       </form>
+      <div class="rec-card" id="rec-card" aria-live="polite">
+        <div class="rec-eyebrow">Application received — your recommended program</div>
+        <div class="rec-name" id="rec-name"></div>
+        <div class="rec-price" id="rec-price"></div>
+        <div class="rec-why-label">Why this fits you</div>
+        <ul class="rec-reasons" id="rec-reasons"></ul>
+        <a href="#" class="program-buy" id="rec-buy" data-plan="">Start This Program</a>
+        <p class="rec-alt" id="rec-alt"></p>
+        <p class="rec-note">A coach still reviews every application and will follow up within 48 hours — no need to wait to get started.</p>
+      </div>
     </div>
   </div>
 </section>
@@ -1085,32 +1123,111 @@
     if (session) link.textContent = 'My Account';
   })();
 
+  // ---- PROGRAM RECOMMENDATION -------------------------------------------
+  // Scores the application answers and picks one program. The 4-Week
+  // Kickstart is intentionally NOT an option here (it's hidden on the site).
+  // To tweak the logic, change the point values below.
+  const REC_PROGRAMS = {
+    'built-for-more-6wk': { name: 'Built For More (6-Week)', price: '<strong>$79</strong> one-time' },
+    'phenom-regime-8wk':  { name: 'The Phenom Regime (8-Week)', price: '<strong>$149</strong> one-time' },
+    'coaching-1on1':      { name: 'Custom Coaching (1:1)', price: '<strong>$249</strong> per month' }
+  };
+
+  function recommendProgram(a) {
+    const score = { 'built-for-more-6wk': 0, 'phenom-regime-8wk': 0, 'coaching-1on1': 0 };
+    const why = { 'built-for-more-6wk': [], 'phenom-regime-8wk': [], 'coaching-1on1': [] };
+    const add = (plan, pts, reason) => { score[plan] += pts; if (reason) why[plan].push(reason); };
+
+    // Main goal — biggest driver
+    switch (a.main_goal) {
+      case 'Lose weight & reduce body fat':
+        add('phenom-regime-8wk', 4, 'Built specifically for fat loss — daily cardio plus high-rep strength work.'); break;
+      case 'Improve endurance & conditioning':
+        add('phenom-regime-8wk', 4, 'Endurance-focused: running, jump rope intervals, and high-rep training build real stamina.'); break;
+      case 'Prepare for an event or race':
+        add('phenom-regime-8wk', 3, 'The daily cardio and endurance focus lines up with event or race prep.');
+        add('coaching-1on1', 2, 'Event prep goes best with a plan built around your exact date and demands.'); break;
+      case 'Gain strength & muscle':
+        add('built-for-more-6wk', 4, 'Progressive strength and hypertrophy work is the core of this program.'); break;
+      case 'Stay consistent year-round':
+        add('built-for-more-6wk', 3, 'A balanced strength + conditioning base you can keep running all year.'); break;
+    }
+
+    // Days per week — Phenom Regime has daily cardio, so it needs more days
+    const days = parseInt(a.days_per_week) || 0;
+    if (days && days <= 3) add('built-for-more-6wk', 2, 'Fits a ' + days + '-day schedule without overloading your week.');
+    if (days >= 5) add('phenom-regime-8wk', 2, days + '+ training days gives you room for the daily cardio this program calls for.');
+
+    // Support they want
+    switch (a.coaching_support) {
+      case 'Full 1-on-1 coaching':
+        add('coaching-1on1', 6, 'You asked for full 1-on-1 coaching — a custom program and direct access to your coach.'); break;
+      case 'Program + accountability check-ins':
+        add('coaching-1on1', 3, 'Ongoing check-ins and feedback keep you accountable week to week.'); break;
+      case 'Exercise technique feedback':
+        add('coaching-1on1', 3, 'Direct coach feedback on your technique.'); break;
+      case 'Nutrition guidance':
+        add('coaching-1on1', 2, 'Coaching lets your plan be adjusted around your nutrition.'); break;
+      case 'Program only':
+        add('built-for-more-6wk', 1); add('phenom-regime-8wk', 1); break;
+    }
+
+    // Biggest obstacle
+    switch (a.biggest_obstacle) {
+      case 'Injuries or physical limitations':
+        add('coaching-1on1', 5, 'With physical limitations, your program should be built around your body — not a template.'); break;
+      case 'Lack of accountability or structure':
+        add('coaching-1on1', 3, 'Accountability is the gap — 1:1 coaching closes it.'); break;
+      case 'Consistency & discipline':
+      case 'Motivation':
+        add('coaching-1on1', 1); break;
+      case 'Confusion about what to do':
+        add('built-for-more-6wk', 1, 'Removes the guesswork — every session is laid out for you.');
+        add('phenom-regime-8wk', 1, 'Removes the guesswork — every session is laid out for you.'); break;
+      case 'Time & schedule':
+        add('built-for-more-6wk', 1); break;
+    }
+
+    // Injuries written in (ignore "none", "n/a", etc.)
+    const inj = (a.injuries || '').trim().toLowerCase();
+    if (inj && !/^(none|no|n\/a|na|nope|nothing|-)\.?$/.test(inj) && a.biggest_obstacle !== 'Injuries or physical limitations') {
+      add('coaching-1on1', 3, 'You noted injuries or limitations — a coach can program around them.');
+    }
+
+    // Ties go to the self-guided programs (lower commitment)
+    const order = ['built-for-more-6wk', 'phenom-regime-8wk', 'coaching-1on1'];
+    let best = order[0];
+    order.forEach(p => { if (score[p] > score[best]) best = p; });
+    if (score[best] === 0) best = 'built-for-more-6wk';
+
+    let reasons = why[best].slice(0, 3);
+    if (!reasons.length) reasons = ['A strong, structured starting point that builds strength and conditioning together.'];
+    return { plan: best, reasons };
+  }
+
+  function showRecommendation(answers) {
+    const { plan, reasons } = recommendProgram(answers);
+    const prog = REC_PROGRAMS[plan];
+    document.getElementById('rec-name').textContent = prog.name;
+    document.getElementById('rec-price').innerHTML = prog.price;
+    const ul = document.getElementById('rec-reasons');
+    ul.innerHTML = '';
+    reasons.forEach(r => { const li = document.createElement('li'); li.textContent = r; ul.appendChild(li); });
+    document.getElementById('rec-buy').setAttribute('data-plan', plan);
+    document.getElementById('rec-alt').innerHTML = plan === 'coaching-1on1'
+      ? 'Want to start self-guided instead? <a href="#programs">Compare all programs</a>'
+      : 'Want more hands-on support? <a href="#programs">See 1:1 coaching and all programs</a>';
+
+    document.getElementById('coaching-form').style.display = 'none';
+    const card = document.getElementById('rec-card');
+    card.classList.add('show');
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
   // "Apply for Coaching" — sends straight into the admin inbox (Supabase)
   // instead of a third-party form service. No account needed to submit;
   // only admins can ever read these back (see supabase-schema.sql RLS).
-  // Spam protection: everything goes through the submit-inquiry edge function,
-  // which checks the honeypot, timing, Turnstile, and answer patterns before
-  // anything reaches the admin inbox. The database no longer accepts direct
-  // inserts from the browser.
   const coachingForm = document.getElementById('coaching-form');
-  const formLoadedAt = Date.now();
-  let turnstileWidgetId = null;
-
-  // Cloudflare Turnstile — only loads once TURNSTILE_SITE_KEY is set in supabase-config.js.
-  if (coachingForm && typeof TURNSTILE_SITE_KEY !== 'undefined' && TURNSTILE_SITE_KEY) {
-    window.onTurnstileLoad = () => {
-      turnstileWidgetId = turnstile.render('#apply-turnstile', {
-        sitekey: TURNSTILE_SITE_KEY,
-        theme: 'dark',
-        appearance: 'interaction-only'
-      });
-    };
-    const ts = document.createElement('script');
-    ts.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad&render=explicit';
-    ts.async = true;
-    document.head.appendChild(ts);
-  }
-
   if (coachingForm) {
     coachingForm.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -1130,10 +1247,7 @@
       submitBtn.disabled = true;
       submitBtn.textContent = 'Submitting...';
 
-      const turnstileToken = (turnstileWidgetId !== null && window.turnstile)
-        ? turnstile.getResponse(turnstileWidgetId) : '';
-
-      const { data: result, error } = await supabaseClient.functions.invoke('submit-inquiry', { body: {
+      const { error } = await supabaseClient.from('inquiries').insert({
         full_name: fullName,
         email: email,
         main_goal: document.getElementById('apply-main-goal').value || null,
@@ -1144,23 +1258,27 @@
         training_location: document.getElementById('apply-training-location').value || null,
         injuries: document.getElementById('apply-injuries').value.trim() || null,
         coaching_support: document.getElementById('apply-coaching-support').value || null,
-        ready_to_invest: document.getElementById('apply-ready-to-invest').value || null,
-        website: document.getElementById('apply-website').value,
-        elapsed_ms: Date.now() - formLoadedAt,
-        turnstile_token: turnstileToken
-      } });
+        ready_to_invest: document.getElementById('apply-ready-to-invest').value || null
+      });
 
       submitBtn.disabled = false;
       submitBtn.textContent = 'Submit Application';
-      if (turnstileWidgetId !== null && window.turnstile) turnstile.reset(turnstileWidgetId);
 
-      if (error || !result || !result.ok) {
-        noteEl.textContent = (result && result.message) || 'Something went wrong submitting your application — please try again.';
+      if (error) {
+        noteEl.textContent = 'Something went wrong submitting your application — please try again.';
         noteEl.style.color = '#ff6b6b';
         return;
       }
 
+      const answers = {
+        main_goal: document.getElementById('apply-main-goal').value,
+        biggest_obstacle: document.getElementById('apply-biggest-obstacle').value,
+        days_per_week: document.getElementById('apply-days-per-week').value,
+        coaching_support: document.getElementById('apply-coaching-support').value,
+        injuries: document.getElementById('apply-injuries').value
+      };
       coachingForm.reset();
+      showRecommendation(answers);
       noteEl.textContent = "Thanks — your application's been sent. We typically follow up within 48 hours.";
       noteEl.style.color = '#6bcf7f';
     });
