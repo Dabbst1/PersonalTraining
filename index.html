@@ -576,6 +576,10 @@
   }
   .form-field select option { background: var(--dark); }
   .form-field textarea { min-height: 90px; resize: vertical; }
+  /* Honeypot: off-screen, not display:none, so bots still "see" and fill it. */
+  .hp-field { position: absolute !important; left: -10000px !important; width: 1px; height: 1px; overflow: hidden; }
+  .turnstile-wrap { grid-column: span 2; }
+  .turnstile-wrap:empty { display: none; }
   .form-submit {
     grid-column: span 2;
     margin-top: 8px;
@@ -709,7 +713,7 @@
     .programs-footnote { flex-direction: column; align-items: flex-start; }
     .intake-grid { grid-template-columns: 1fr; gap: 48px; }
     .form-grid { grid-template-columns: 1fr; }
-    .form-field.full, .form-submit, .form-note { grid-column: span 1; }
+    .form-field.full, .form-submit, .form-note, .turnstile-wrap { grid-column: span 1; }
     footer { flex-direction: column; gap: 16px; text-align: center; }
   }
 </style>
@@ -1047,6 +1051,12 @@
             <option>Still figuring it out</option>
           </select>
         </div>
+        <!-- Spam trap: real people never see or fill this. -->
+        <div class="hp-field" aria-hidden="true">
+          <label for="apply-website">Website</label>
+          <input type="text" name="website" id="apply-website" tabindex="-1" autocomplete="off">
+        </div>
+        <div class="turnstile-wrap" id="apply-turnstile"></div>
         <div class="form-submit">
           <button type="submit" id="apply-submit-btn">Submit Application</button>
         </div>
@@ -1241,7 +1251,29 @@
   // "Apply for Coaching" — sends straight into the admin inbox (Supabase)
   // instead of a third-party form service. No account needed to submit;
   // only admins can ever read these back (see supabase-schema.sql RLS).
+  // Spam protection: everything goes through the submit-inquiry edge function,
+  // which checks the honeypot, timing, Turnstile, and answer patterns before
+  // anything reaches the admin inbox. The database no longer accepts direct
+  // inserts from the browser.
   const coachingForm = document.getElementById('coaching-form');
+  const formLoadedAt = Date.now();
+  let turnstileWidgetId = null;
+
+  // Cloudflare Turnstile — only loads once TURNSTILE_SITE_KEY is set in supabase-config.js.
+  if (coachingForm && typeof TURNSTILE_SITE_KEY !== 'undefined' && TURNSTILE_SITE_KEY) {
+    window.onTurnstileLoad = () => {
+      turnstileWidgetId = turnstile.render('#apply-turnstile', {
+        sitekey: TURNSTILE_SITE_KEY,
+        theme: 'dark',
+        appearance: 'interaction-only'
+      });
+    };
+    const ts = document.createElement('script');
+    ts.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad&render=explicit';
+    ts.async = true;
+    document.head.appendChild(ts);
+  }
+
   if (coachingForm) {
     coachingForm.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -1261,7 +1293,10 @@
       submitBtn.disabled = true;
       submitBtn.textContent = 'Submitting...';
 
-      const { error } = await supabaseClient.from('inquiries').insert({
+      const turnstileToken = (turnstileWidgetId !== null && window.turnstile)
+        ? turnstile.getResponse(turnstileWidgetId) : '';
+
+      const { data: result, error } = await supabaseClient.functions.invoke('submit-inquiry', { body: {
         full_name: fullName,
         email: email,
         main_goal: document.getElementById('apply-main-goal').value || null,
@@ -1272,14 +1307,18 @@
         training_location: document.getElementById('apply-training-location').value || null,
         injuries: document.getElementById('apply-injuries').value.trim() || null,
         coaching_support: document.getElementById('apply-coaching-support').value || null,
-        ready_to_invest: document.getElementById('apply-ready-to-invest').value || null
-      });
+        ready_to_invest: document.getElementById('apply-ready-to-invest').value || null,
+        website: document.getElementById('apply-website').value,
+        elapsed_ms: Date.now() - formLoadedAt,
+        turnstile_token: turnstileToken
+      } });
 
       submitBtn.disabled = false;
       submitBtn.textContent = 'Submit Application';
+      if (turnstileWidgetId !== null && window.turnstile) turnstile.reset(turnstileWidgetId);
 
-      if (error) {
-        noteEl.textContent = 'Something went wrong submitting your application — please try again.';
+      if (error || !result || !result.ok) {
+        noteEl.textContent = (result && result.message) || 'Something went wrong submitting your application — please try again.';
         noteEl.style.color = '#ff6b6b';
         return;
       }

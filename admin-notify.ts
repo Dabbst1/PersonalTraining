@@ -1,11 +1,17 @@
 // ═══════════════════════════════════════════════════════════════
 // EMAIL ALERTS — emails you when someone submits the coaching form
-// or a client sends you a message on the site.
+// or a client sends you a message on the site. Also sends every new
+// applicant your welcome email automatically (skipped for flagged spam).
 //
 // Sends from your own Gmail, to your own Gmail — no extra services.
 // Needs one Supabase secret: GMAIL_APP_PASSWORD (a Google app password).
 // ═══════════════════════════════════════════════════════════════
 const MY_EMAIL = 'thephenomregime@gmail.com';
+
+// Alerts are delivered to this "+alerts" version of your address. It still lands
+// in the same Gmail inbox, but Gmail treats it as incoming mail instead of
+// filing it only under Sent (which happens when you email yourself).
+const ALERT_TO = 'thephenomregime+alerts@gmail.com';
 
 const SITE_URL = 'https://thephenomregime.com';
 
@@ -51,17 +57,99 @@ function wrap(title: string, inner: string, buttonText: string) {
   </div>`;
 }
 
-async function sendEmail(subject: string, html: string, replyTo?: string) {
+async function sendEmail(subject: string, html: string, replyTo?: string): Promise<string> {
   try {
-    await mailer.sendMail({
+    const info = await mailer.sendMail({
       from: `Built For More Alerts <${MY_EMAIL}>`,
-      to: MY_EMAIL,
+      to: ALERT_TO,
       subject,
       html,
       ...(replyTo ? { replyTo } : {})
     });
+    return 'sent: ' + (info.response || 'ok');
   } catch (err) {
     console.error('Gmail send failed:', err);
+    return 'GMAIL ERROR: ' + String((err as any)?.message || err) +
+      ` | login: ${MY_EMAIL} | saved password length: ${gmailAppPassword.length} (should be 16)`;
+  }
+}
+
+// ── Welcome email sent automatically to every new applicant ──────
+// Edit the text below to change it. {{first_name}} is filled in with the
+// first name they typed into the application form.
+const WELCOME_SUBJECT = 'Welcome to The Phenom Regime — Your Next Steps';
+const WELCOME_EMAIL = `Hi {{first_name}},
+
+First, thank you for taking the time to complete your coaching application and welcome to The Phenom Regime.
+
+You've already taken the hardest step—getting started.
+
+At The Phenom Regime, we believe lasting results come from structure, consistency, and a program built specifically for you, not a generic workout downloaded from the internet.
+
+Here's what happens next:
+
+✓ We'll review your application
+Our team will go through the information you submitted so we can better understand your goals, experience level, and what you're looking to accomplish.
+
+✓ We'll contact you within the next 48 hours
+You'll receive an email or phone call to schedule your FREE 15-minute consultation.
+
+During this consultation, we'll discuss:
+• Your fitness goals
+• Current challenges
+• Training experience
+• Lifestyle and schedule
+• The best path forward to help you succeed
+
+✓ We'll build your custom program
+After your consultation, we'll begin designing a personalized training program tailored specifically to your goals, fitness level, and lifestyle.
+
+No cookie-cutter workouts.
+No one-size-fits-all plans.
+
+Every recommendation is built around helping you make consistent progress.
+
+WHILE YOU WAIT
+Start thinking about the goals you want to accomplish over the next 8–12 weeks.
+
+Ask yourself:
+• What do I want to achieve?
+• What's been holding me back?
+• What would success look like three months from now?
+
+The more clarity you have, the more effective your coaching experience will be.
+
+Thank you again for trusting The Phenom Regime.
+
+We're excited to help you build more than just a stronger body—we're here to help you build stronger habits, greater confidence, and a mindset that lasts long after the workouts are over.
+
+We'll be in touch within 48 hours.
+
+See you soon,
+
+David Taylor
+Founder | The Phenom Regime
+Instagram: @Daviid.a.taylor | @ThePhenomRegime`;
+
+function firstName(fullName: unknown) {
+  const first = String(fullName ?? '').trim().split(/\s+/)[0] || 'there';
+  return first.charAt(0).toUpperCase() + first.slice(1);
+}
+
+async function sendWelcome(r: any): Promise<string> {
+  if (r.flagged) return 'welcome skipped (flagged as possible spam)';
+  if (!r.email) return 'welcome skipped (no email)';
+  try {
+    await mailer.sendMail({
+      from: `David Taylor | The Phenom Regime <${MY_EMAIL}>`,
+      to: r.email,
+      subject: WELCOME_SUBJECT,
+      text: WELCOME_EMAIL.replace(/\{\{first_name\}\}/g, firstName(r.full_name))
+    });
+    return 'welcome sent';
+  } catch (err) {
+    console.error('Welcome email failed:', err);
+    return 'WELCOME ERROR: ' + String((err as any)?.message || err);
   }
 }
 
@@ -78,7 +166,7 @@ async function loadFreshRow(table: string, id: string) {
 Deno.serve(async (req) => {
   if (!gmailAppPassword) {
     console.error('GMAIL_APP_PASSWORD secret is missing.');
-    return new Response('missing key');
+    return new Response('GMAIL ERROR: GMAIL_APP_PASSWORD secret is missing');
   }
 
   let payload: any = {};
@@ -88,7 +176,7 @@ Deno.serve(async (req) => {
   // ── New coaching application ──
   if (payload.table === 'inquiries') {
     const r = await loadFreshRow('inquiries', payload.record?.id);
-    if (!r) return new Response('ignored');
+    if (!r) return new Response('ignored: row not found or too old');
     const html = wrap(
       `New coaching application: ${r.full_name}`,
       `<table style="border-collapse:collapse;width:100%">
@@ -107,8 +195,9 @@ Deno.serve(async (req) => {
       <p style="color:#888;font-size:13px;margin-top:16px">Hit reply to email ${esc(r.full_name)} directly.</p>`,
       'Open Admin Inbox'
     );
-    await sendEmail(`New application — ${r.full_name}`, html, r.email);
-    return new Response('ok');
+    const alertResult = await sendEmail(`New application — ${r.full_name}`, html, r.email);
+    const welcomeResult = await sendWelcome(r);
+    return new Response(`${alertResult} | ${welcomeResult}`);
   }
 
   // ── New message from a client (your own replies are skipped) ──
@@ -124,8 +213,7 @@ Deno.serve(async (req) => {
       <p style="color:#888;font-size:13px;margin-top:16px">Reply on the site so it stays in their message thread.</p>`,
       'Reply on the Site'
     );
-    await sendEmail(`New message from ${name}`, html);
-    return new Response('ok');
+    return new Response(await sendEmail(`New message from ${name}`, html));
   }
 
   return new Response('ignored');
