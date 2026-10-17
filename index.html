@@ -716,6 +716,12 @@
     .form-field.full, .form-submit, .form-note, .turnstile-wrap { grid-column: span 1; }
     footer { flex-direction: column; gap: 16px; text-align: center; }
   }
+  /* Small phones: keep the nav on one line when the Admin button is showing too */
+  @media (max-width: 480px) {
+    .nav-logo { font-size: 0.85rem; letter-spacing: 0.03em; white-space: nowrap; }
+    .nav-links { gap: 5px; }
+    .nav-links a.nav-account, .nav-links a.nav-cta { padding: 6px 7px; font-size: 0.62rem; letter-spacing: 0.05em; }
+  }
 </style>
 </head>
 <body>
@@ -728,6 +734,7 @@
     <li><a href="#gallery">Gallery</a></li>
     <li><a href="#video">Training</a></li>
     <li><a href="#programs">Programs</a></li>
+    <li id="nav-admin-item" style="display:none;"><a href="admin.html" class="nav-account" id="nav-admin-link">Admin</a></li>
     <li><a href="dashboard.html" class="nav-account" id="nav-account-link">Log In</a></li>
     <li><a href="#programs" class="nav-cta">Get Started</a></li>
   </ul>
@@ -1139,12 +1146,17 @@
     });
   });
 
-  // Nav: show "Log In" if signed out, "My Account" if already signed in.
+  // Nav: show "Log In" if signed out, "My Account" if signed in, plus "Admin" for admins.
   (async () => {
     const link = document.getElementById('nav-account-link');
     if (!link || typeof supabaseClient === 'undefined' || !supabaseClient) return;
     const { data: { session } } = await supabaseClient.auth.getSession();
-    if (session) link.textContent = 'My Account';
+    if (session) {
+      link.textContent = 'My Account';
+      // Admins also get a direct "Admin" button in the nav.
+      const { data: isAdmin } = await supabaseClient.rpc('is_admin');
+      if (isAdmin) document.getElementById('nav-admin-item').style.display = '';
+    }
   })();
 
   // ---- PROGRAM RECOMMENDATION -------------------------------------------
