@@ -104,6 +104,9 @@
   <a href="index.html" class="nav-logo">Built For More</a>
   <ul class="nav-links">
     <li><a href="dashboard.html">My Program</a></li>
+    <li><a href="admin-messages.html">Messages</a></li>
+    <li><a href="admin-program-builder.html">Program Builder</a></li>
+    <li><a href="admin-exercise-catalog.html">Exercise Videos</a></li>
     <li><a href="#" id="logout-link">Log Out</a></li>
   </ul>
 </nav>
@@ -172,7 +175,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
-<script src="admin-nav.js"></script>
 <script>
   let allRows = [];
 
@@ -188,21 +190,28 @@
       return;
     }
 
-    // admin_list_clients() is a database function that itself checks
-    // whether the caller is an admin (see supabase-schema.sql) — it returns
-    // an empty result for anyone who isn't, so this is enforced server-side,
-    // not just by hiding the page.
-    const { data, error } = await supabaseClient.rpc('admin_list_clients');
+    // Ask the database directly whether this account is an admin. (Don't
+    // infer it from the client list — that list is legitimately empty until
+    // the first real client buys something.) The client list itself is also
+    // protected server-side, so this check is just for showing the right page.
+    const { data: isAdmin } = await supabaseClient.rpc('is_admin');
 
     document.getElementById('loading-state').style.display = 'none';
 
-    if (error || !data || data.length === 0) {
+    if (!isAdmin) {
       document.getElementById('denied-state').style.display = 'block';
       return;
     }
 
-    allRows = data;
+    const { data, error } = await supabaseClient.rpc('admin_list_clients');
+    if (error) console.error('Could not load clients:', error);
+
+    allRows = data || [];
     renderRows(allRows);
+    if (allRows.length === 0) {
+      document.getElementById('client-rows').innerHTML =
+        '<tr><td colspan="8" style="color:var(--grey); padding:24px 0;">No clients yet — they\'ll show up here once someone buys a program.</td></tr>';
+    }
     document.getElementById('admin-content').style.display = 'block';
 
     await loadWaiverToggle();
