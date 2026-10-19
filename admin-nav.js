@@ -65,7 +65,7 @@
     style.textContent = css;
     document.head.appendChild(style);
 
-    const current = (location.pathname.split('/').pop() || 'index.html').toLowerCase();
+    const current = ((location.pathname.split('/').pop() || 'index').toLowerCase().replace(/\.html$/, '')) + '.html';
     const bar = document.createElement('div');
     bar.className = 'admin-bar';
     bar.innerHTML =
@@ -119,6 +119,14 @@
     } catch (e) { /* badge is a nice-to-have — never break the page */ }
   }
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', build);
-  else build();
+  // The script is included right after the top <nav> on every admin page, so
+  // build the bar immediately (before the page below it ever paints) rather
+  // than waiting for the whole page — that's what keeps it from popping in
+  // late or shifting the page when you switch tabs.
+  if (document.querySelector('nav') || document.readyState !== 'loading') build();
+  else document.addEventListener('DOMContentLoaded', build);
+
+  // The Supabase scripts load after this one, so fill in the Inbox count as
+  // soon as the page has finished loading.
+  window.addEventListener('load', refreshBadge);
 })();
