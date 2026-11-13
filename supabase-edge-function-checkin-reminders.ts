@@ -28,7 +28,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const resendApiKey = Deno.env.get('RESEND_API_KEY');
 const SITE_URL = 'https://dabbst1.github.io/PersonalTraining'; // update if your site URL changes
-const FROM_EMAIL = 'Built For More <hello@yourdomain.com>'; // update after verifying a domain in Resend
+const FROM_EMAIL = 'The Phenom Regime <hello@yourdomain.com>'; // update after verifying a domain in Resend
 const INACTIVITY_DAYS = 3;        // remind after this many days with no check-in
 const REMINDER_COOLDOWN_DAYS = 4; // don't remind the same person again within this many days of the last reminder
 

@@ -87,7 +87,7 @@ const PROGRAM_NAMES: Record<string, string> = {
 };
 
 const SITE_URL = 'https://dabbst1.github.io/PersonalTraining'; // update if your site URL changes
-const FROM_EMAIL = 'Built For More <hello@yourdomain.com>'; // update after verifying a domain in Resend
+const FROM_EMAIL = 'The Phenom Regime <hello@yourdomain.com>'; // update after verifying a domain in Resend
 
 async function sendWelcomeEmail(toEmail: string, programId: string) {
   if (!resendApiKey) {
@@ -108,7 +108,7 @@ async function sendWelcomeEmail(toEmail: string, programId: string) {
         subject: `You're in — access ${programName} now`,
         html: `
           <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; color: #111;">
-            <h2 style="font-family: sans-serif;">Welcome to Built For More</h2>
+            <h2 style="font-family: sans-serif;">Welcome to The Phenom Regime</h2>
             <p>Your purchase of <strong>${programName}</strong> is confirmed.</p>
             <p>One last step: create your account using this same email address (${toEmail}) to unlock your program and start checking in your workouts.</p>
             <p style="margin: 24px 0;">

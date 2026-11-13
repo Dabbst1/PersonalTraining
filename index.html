@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Built For More — Performance Coaching</title>
+<title>The Phenom Regime — Online Strength &amp; Fat-Loss Coaching</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
@@ -504,6 +504,18 @@
     flex-wrap: wrap;
     gap: 24px;
   }
+  .after-buy { margin-top: 56px; padding-top: 40px; border-top: 1px solid var(--border); }
+  .after-buy h3 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 1.1rem; font-weight: 700; letter-spacing: 0.04em;
+    color: var(--white); margin-bottom: 24px; text-transform: uppercase;
+  }
+  .after-buy-steps { list-style: none; display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+  .after-buy-steps li { display: flex; gap: 16px; align-items: flex-start; }
+  .after-buy-steps span { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; line-height: 1; color: var(--red); }
+  .after-buy-steps div { font-size: 0.9rem; line-height: 1.6; color: var(--grey); }
+  .after-buy-steps strong { display: block; color: var(--white); font-family: 'Barlow Condensed', sans-serif; font-size: 1rem; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 4px; }
+  .after-buy-steps a { color: var(--light-grey); }
   .programs-footnote h3 {
     font-family: 'Barlow Condensed', sans-serif;
     font-size: 1.1rem;
@@ -711,6 +723,7 @@
     .video-grid { grid-template-columns: 1fr; }
     .program-grid { grid-template-columns: 1fr; }
     .programs-footnote { flex-direction: column; align-items: flex-start; }
+    .after-buy-steps { grid-template-columns: 1fr; }
     .intake-grid { grid-template-columns: 1fr; gap: 48px; }
     .form-grid { grid-template-columns: 1fr; }
     .form-field.full, .form-submit, .form-note, .turnstile-wrap { grid-column: span 1; }
@@ -728,7 +741,7 @@
 
 <!-- NAV -->
 <nav>
-  <a href="#" class="nav-logo">Built For More</a>
+  <a href="#" class="nav-logo">The Phenom Regime</a>
   <ul class="nav-links">
     <li><a href="#story">Story</a></li>
     <li><a href="#gallery">Gallery</a></li>
@@ -745,7 +758,7 @@
   <div class="hero-bg"></div>
   <div class="hero-overlay"></div>
   <div class="hero-content">
-    <p class="hero-eyebrow">Endurance &bull; Grit &bull; Performance</p>
+    <p class="hero-eyebrow">The Phenom Regime &bull; Online Coaching</p>
     <h1 class="hero-title">Built<br>For <span>More</span></h1>
     <p class="hero-sub">Lose weight. Build real strength. Stay in shape year-round. No gimmicks. No quick fixes. Just structured training, consistency, and accountability.</p>
     <div class="hero-actions">
@@ -882,8 +895,8 @@
     </div>
     <div class="video-card reveal">
       <div class="video-num">02</div>
-      <h3>Client Results</h3>
-      <p>The people in this program started exactly where you are. Real fat loss. Real strength gains. Real before and afters built over months, not weeks.</p>
+      <h3>Track Your Progress</h3>
+      <p>Log every workout and check in as you go. Your weight, your lifts, and your consistency are tracked in your account so you can see the progress add up week after week.</p>
     </div>
     <div class="video-card reveal">
       <div class="video-num">03</div>
@@ -952,22 +965,31 @@
     </div>
   </div>
 
+  <div class="after-buy reveal">
+    <h3>What Happens After You Buy</h3>
+    <ol class="after-buy-steps">
+      <li><span>01</span><div><strong>Check out securely</strong>Pay through Stripe. You'll get a confirmation email right away.</div></li>
+      <li><span>02</span><div><strong>Create your account</strong>Use the <em>same email</em> you checked out with on the <a href="auth.html">Create Account</a> page. Your program unlocks automatically.</div></li>
+      <li><span>03</span><div><strong>Start Week 1 today</strong>Your dashboard shows today's workout. Log it, check in, and keep going.</div></li>
+    </ol>
+  </div>
+
   <div class="programs-footnote reveal">
     <div>
-      <h3>Want To Talk It Through First?</h3>
-      <p>Not ready to commit yet? Send us a few details about your goals and we'll follow up before you buy anything.</p>
+      <h3>Not Sure Which Program Fits?</h3>
+      <p>Answer a few quick questions and get an instant recommendation. A coach will also follow up personally. Totally optional.</p>
     </div>
-    <a href="#apply" class="btn-ghost">Apply For Coaching</a>
+    <a href="#apply" class="btn-ghost">Get A Recommendation</a>
   </div>
 </section>
 
 <!-- APPLY FOR COACHING (INQUIRY) -->
 <section class="intake-section" id="apply">
-  <div class="section-label reveal">Apply for Coaching</div>
-  <h2 class="section-title reveal">Tell Us About<br>Your Goals.</h2>
+  <div class="section-label reveal">Optional &bull; 1 Minute</div>
+  <h2 class="section-title reveal">Find Your<br>Program.</h2>
   <div class="intake-grid">
     <div class="intake-info reveal">
-      <p>Fill this out completely. The more honest your answers, the better the coaching fit. This isn't a purchase — it's a quick way to reach a coach directly and figure out if 1:1 coaching is the right move before you buy anything.</p>
+      <p>You don't need this to buy. Any program can be purchased directly above. If you're unsure which one fits, answer these quick questions and you'll get a recommendation instantly. A coach will also reach out to answer any questions.</p>
     </div>
     <div class="reveal">
       <form class="form-grid" id="coaching-form">
@@ -989,14 +1011,6 @@
             <option>Stay consistent year-round</option>
             <option>Prepare for an event or race</option>
           </select>
-        </div>
-        <div class="form-field full">
-          <label>Why is this goal important to you right now?</label>
-          <textarea name="goal_importance" id="apply-goal-importance" placeholder="What's driving this for you? Be specific."></textarea>
-        </div>
-        <div class="form-field full">
-          <label>What have you already tried?</label>
-          <textarea name="already_tried" id="apply-already-tried" placeholder="Programs, diets, trainers, phases you couldn't stick to..."></textarea>
         </div>
         <div class="form-field full">
           <label>Biggest thing holding you back?</label>
@@ -1034,7 +1048,7 @@
           </select>
         </div>
         <div class="form-field full">
-          <label>Injuries, Pain, or Physical Limitations</label>
+          <label>Injuries, Pain, or Limitations (Optional)</label>
           <textarea name="injuries" id="apply-injuries" placeholder="Be honest. Programming needs to match the body you have right now."></textarea>
         </div>
         <div class="form-field full">
@@ -1049,15 +1063,6 @@
             <option>Not sure yet — let's talk</option>
           </select>
         </div>
-        <div class="form-field full">
-          <label>Ready to invest time, effort, and money into the process?</label>
-          <select name="ready_to_invest" id="apply-ready-to-invest">
-            <option value="" disabled selected>Select your answer</option>
-            <option>Yes — I'm committed and ready to start</option>
-            <option>Yes — but I need to understand costs first</option>
-            <option>Still figuring it out</option>
-          </select>
-        </div>
         <!-- Spam trap: real people never see or fill this. -->
         <div class="hp-field" aria-hidden="true">
           <label for="apply-website">Website</label>
@@ -1065,13 +1070,13 @@
         </div>
         <div class="turnstile-wrap" id="apply-turnstile"></div>
         <div class="form-submit">
-          <button type="submit" id="apply-submit-btn">Submit Application</button>
+          <button type="submit" id="apply-submit-btn">Get My Recommendation</button>
         </div>
-        <p class="form-note" id="apply-form-note">Applications are typically reviewed within 48 hours. Only serious applicants will be contacted.</p>
+        <p class="form-note" id="apply-form-note">Your recommendation shows up instantly. A coach replies by email within 48 hours.</p>
       </form>
       <div class="rec-card" id="rec-card" aria-live="polite">
-        <h3 class="rec-headline">Application Received</h3>
-        <p class="rec-lead">A coach still reviews every application and will follow up within 48 hours — no need to wait to get started.</p>
+        <h3 class="rec-headline">Here's Your Match</h3>
+        <p class="rec-lead">A coach will also follow up by email within 48 hours, but there's no need to wait. You can start today.</p>
         <div class="rec-divider"></div>
         <div class="rec-eyebrow">Your recommended program</div>
         <div class="rec-name" id="rec-name"></div>
@@ -1088,9 +1093,9 @@
 
 <!-- FOOTER -->
 <footer>
-  <div class="footer-logo">Built For More</div>
-  <p>Endurance &bull; Grit &bull; Performance</p>
-  <p>&copy; 2025. All rights reserved.</p>
+  <div class="footer-logo">The Phenom Regime</div>
+  <p>Endurance &bull; Grit &bull; Performance &bull; <a href="waiver.html" style="color:inherit;">Liability Waiver</a></p>
+  <p>&copy; <span id="footer-year">2026</span> The Phenom Regime. All rights reserved.</p>
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -1112,6 +1117,7 @@
   }, { threshold: 0.1 });
 
   document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+  document.getElementById('footer-year').textContent = new Date().getFullYear();
 
   // Buy button flow:
   //  - Already logged in → send straight to their Stripe Payment Link (buying an
@@ -1312,25 +1318,25 @@
         full_name: fullName,
         email: email,
         main_goal: document.getElementById('apply-main-goal').value || null,
-        goal_importance: document.getElementById('apply-goal-importance').value.trim() || null,
-        already_tried: document.getElementById('apply-already-tried').value.trim() || null,
+        goal_importance: null,
+        already_tried: null,
         biggest_obstacle: document.getElementById('apply-biggest-obstacle').value || null,
         days_per_week: document.getElementById('apply-days-per-week').value || null,
         training_location: document.getElementById('apply-training-location').value || null,
         injuries: document.getElementById('apply-injuries').value.trim() || null,
         coaching_support: document.getElementById('apply-coaching-support').value || null,
-        ready_to_invest: document.getElementById('apply-ready-to-invest').value || null,
+        ready_to_invest: null,
         website: document.getElementById('apply-website').value,
         elapsed_ms: Date.now() - formLoadedAt,
         turnstile_token: turnstileToken
       } });
 
       submitBtn.disabled = false;
-      submitBtn.textContent = 'Submit Application';
+      submitBtn.textContent = 'Get My Recommendation';
       if (turnstileWidgetId !== null && window.turnstile) turnstile.reset(turnstileWidgetId);
 
       if (error || !result || !result.ok) {
-        noteEl.textContent = (result && result.message) || 'Something went wrong submitting your application — please try again.';
+        noteEl.textContent = (result && result.message) || 'Something went wrong submitting your answers — please try again.';
         noteEl.style.color = '#ff6b6b';
         return;
       }
@@ -1344,7 +1350,7 @@
       };
       coachingForm.reset();
       showRecommendation(answers);
-      noteEl.textContent = "Thanks — your application's been sent. We typically follow up within 48 hours.";
+      noteEl.textContent = "Thanks! A coach will follow up within 48 hours.";
       noteEl.style.color = '#6bcf7f';
     });
   }
